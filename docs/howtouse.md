@@ -1,337 +1,410 @@
-# RechargeCRM — How To Use
-
-Ye application ek recharge management system hai jisme do type ke users hote hain — **Admin/Super Admin** aur **Retailer**. Niche step-by-step guide hai ki application ko kaise use karna hai.
+# RechargeCRM — Complete Usage Guide (Hinglish)
 
 ---
 
-## 1. Application Open Karo
+## Application kya hai?
 
-Browser mein open karo:
-```
-http://localhost:5173
-```
-
-Agar already logged in nahi ho toh automatically `/login` page par redirect ho jaoge.
+RechargeCRM ek B2B recharge management platform hai. Isme **Super Admin** system ko control karta hai, **Admin** daily operations manage karta hai, aur **Retailers** apne customers ke liye recharges karte hain. Har retailer ka ek wallet hota hai jisme balance hona chahiye recharge karne ke liye.
 
 ---
 
-## 2. Login
+## User Roles
 
-**Route:** `http://localhost:5173/login`
+| Role | Kya kar sakta hai |
+|---|---|
+| **Super Admin** | Sab kuch — users delete, settings bulk update, operators delete |
+| **Admin** | Users banao, wallets manage karo, operators/plans manage karo, logs dekho |
+| **Retailer** | Sirf recharge karo, apna wallet aur reports dekho |
 
-- **Email ya Phone** field mein apna registered phone number ya email daalo
-- **Password** daalo
-- **Sign In** button click karo
-
-Default Admin credentials:
+Default Super Admin credentials:
 ```
 Phone:    9000000000
 Password: Admin@12345
 ```
 
-Login hone ke baad automatically `/dashboard` par redirect hoga.
+---
 
-> Agar account nahi hai toh **Register** link click karo aur naya retailer account banao.
+## STEP-BY-STEP FULL WORKFLOW
 
 ---
 
-## 3. Register (Retailer ke liye)
+## STEP 1 — Super Admin / Admin Login
 
-**Route:** `http://localhost:5173/register`
+**URL:** `http://localhost:5173/login`
 
-- Full Name, Business Name, Email, Phone, Password bharo
-- Password mein uppercase, lowercase, number aur special character hona chahiye (min 8 chars)
-- **Create Account** click karo
-- Account ban jaane ke baad `/login` par redirect hoga — wahan se login karo
+1. Phone number ya email daalo: `9000000000`
+2. Password daalo: `Admin@12345`
+3. **Sign In** click karo
+4. Dashboard open ho jayega
 
----
-
-## 4. Forgot Password
-
-**Route:** `http://localhost:5173/forgot-password`
-
-- Apna registered email daalo
-- **Send Reset Link** click karo
-- Email mein aaya link click karo aur naya password set karo
+> Agar 5 baar galat password daala toh account 30 minute ke liye lock ho jaata hai. Lock message screen par dikhega.
 
 ---
 
-## Dashboard
+## STEP 2 — Retailer Account Banana (Admin karta hai)
 
-**Route:** `http://localhost:5173/dashboard`
+**URL:** `http://localhost:5173/admin/users`
 
-Login ke baad sabse pehle ye page dikhta hai.
-
-**Kya dikhta hai:**
-- Aaj ke total transactions aur amount
-- All-time sales aur transactions
-- Successful recharges count
-- Sales by day chart (bar/line chart)
-- Status breakdown pie chart (Success, Failed, Pending, etc.)
-- Recent 5 transactions ki list
-
-Admin ko sabka data dikhta hai, Retailer ko sirf apna.
-
----
-
-## 5. Recharge Karna (Retailer)
-
-**Route:** `http://localhost:5173/recharge`
-
-Ye page sirf retailers ke liye hai.
+Jab bhi koi naya shopkeeper ya distributor system join kare, Admin uska account banata hai.
 
 **Steps:**
-1. **Recharge Type** select karo — Mobile Prepaid, DTH, Broadband, Electricity, etc.
-2. **Mobile / Account Number** daalo
-3. **Operator** select karo (e.g. Airtel, Jio, Vi)
-4. **Circle / State** select karo (e.g. Maharashtra, Delhi)
-5. Right side mein **Available Plans** dikhenge — koi plan click karo toh amount automatically fill ho jayega
-6. Ya manually **Amount** daalo
-7. **Initiate Recharge** button click karo
+1. Left sidebar mein **Users** click karo
+2. Top-right mein **Add User** button click karo
+3. Form bharo:
+   - **Full Name**: Rahul Sharma
+   - **Business Name**: Sharma Telecom (optional)
+   - **Email**: rahul@example.com
+   - **Phone**: 9876543210
+   - **Role**: Retailer select karo
+   - **Password**: Koi strong password (uppercase + lowercase + number + special char, min 8)
+   - **Confirm Password**: Same password dobara
+4. **Create User** click karo
+5. Success message aayega — retailer ka account ban gaya
 
-**Transaction status** real-time update hota hai niche ki table mein. Status filter se specific status ke transactions dekh sakte ho — SUCCESS, FAILED, PENDING, etc.
-
-Wallet balance top-left card mein dikhta hai.
-
----
-
-## 6. My Wallet (Retailer)
-
-**Route:** `http://localhost:5173/wallet`
-
-- Current wallet **balance** dikhta hai
-- Total **credit** aur total **debit** summary
-- Poori **transaction statement** with pagination
-- Har entry mein type (CREDIT/DEBIT), amount, balance after, description aur date hoti hai
+> Super Admin chahe toh Admin role bhi de sakta hai.
 
 ---
 
-## 7. Notifications
+## STEP 3 — Retailer Ki Wallet Mein Paisa Dalna (Credit)
 
-**Route:** `http://localhost:5173/notifications`
+**URL:** `http://localhost:5173/admin/wallet`
 
-- Saari notifications yahan dikhti hain
-- **Unread** notifications blue dot se mark hoti hain
-- **Mark all read** button se sab ek saath read ho jaati hain
-- Individual notification ko checkmark icon se read mark kar sakte ho
-- Filter: All / Unread / Read
+Retailer recharge karne ke liye uski wallet mein pehle balance hona chahiye. Admin hi balance dalta hai.
 
-**Admin ke liye:**
-- **Broadcast** button se poore system mein notification bhej sakte ho
-- Target role select kar sakte ho — All, Retailers, Admins
+**Steps:**
+1. Left sidebar mein **Wallet** (Admin section) click karo
+2. **Find Retailer Wallet** search box mein retailer ka naam ya phone number daalo (minimum 2 characters)
+3. Results mein retailer dikhega — **Credit** button click karo
+4. Modal khulega:
+   - **Amount**: Kitna credit karna hai (e.g. 5000)
+   - **Description**: "Initial wallet top-up" ya koi reason
+   - **Remarks**: Optional notes
+5. **Credit** button click karo
+6. Success toast aayega — retailer ki wallet mein balance aa gaya
 
----
-
-## 8. Reports
-
-**Route:** `http://localhost:5173/reports`
-
-Date range se filter karo (default last 30 days).
-
-**Retailer ke liye:**
-- My Recharge Summary — total transactions, amount, success/fail count
-- My Wallet Summary — total credit, debit, current balance
-
-**Admin ke liye — 4 tabs:**
-
-| Tab | Kya dikhta hai |
-|---|---|
-| Overview | Sales stats cards, daily sales line chart, sales by operator bar chart |
-| Recharge | Paginated recharge transaction table with status filter |
-| Wallet | Paginated wallet ledger table |
-| Commission | Per-retailer commission earned table |
+**Verification:** Retailer apni wallet `http://localhost:5173/wallet` par dekh sakta hai.
 
 ---
 
-## 9. API Keys
+## STEP 4 — Retailer Login Karna
 
-**Route:** `http://localhost:5173/api-keys`
+**URL:** `http://localhost:5173/login`
 
-Programmatic access ke liye API keys manage karo.
+Retailer apna account khud bhi bana sakta hai ya Admin ne jo account banaya usse login kare:
 
-**Naya key banane ke steps:**
-1. **Create Key** button click karo
-2. Key ka **naam** daalo (e.g. "Production Key")
-3. **Permissions** select karo — recharge:initiate, wallet:read, etc.
-4. Optional: **Expiry date** set karo
-5. **Create Key** click karo
-6. **Ek hi baar** raw key dikhega — copy kar lo, dobara nahi dikhega
-
-Existing keys mein **Revoke** button se key band kar sakte ho.
+1. Phone number ya email daalo
+2. Password daalo
+3. **Sign In** click karo
+4. Retailer ka dashboard open hoga — sirf uski data dikhegi (admin data nahi)
 
 ---
 
-## 10. Profile
+## STEP 5 — Mobile Recharge Karna (Retailer)
 
-**Route:** `http://localhost:5173/profile`
+**URL:** `http://localhost:5173/recharge`
 
-**Kya kar sakte ho:**
-- **Avatar** change karo — camera icon click karo
-- **Name, Business Name, GST, PAN, Address** update karo — Save Changes
-- **Password change** karo — current password daalo, naya password daalo
-- **Active Sessions** dekho — kaun se devices par login hai
-- **Revoke All** se sab sessions band karo (current session bhi)
-- **Login History** dekho — kab kahan se login hua
+Yahi main kaam hai retailer ka — customers ke liye recharge karna.
 
----
+**Detailed Steps:**
 
-## Admin-Only Pages
+**Step 5a — Recharge Type Select Karo**
+- Mobile Prepaid, Mobile Postpaid, DTH, Broadband, Electricity, Gas, etc.
+- Default "Mobile Prepaid" selected rehta hai
 
-Ye pages sirf Admin aur Super Admin ko dikhte hain.
+**Step 5b — Mobile Number Daalo**
+- Customer ka 10-digit mobile number enter karo
+- Mobile number enter karne ke baad field se bahar click karo (onBlur)
+- **Auto-detect**: System automatically MRobotics API se operator detect karega aur operator + circle automatically fill ho jaayega
+- Agar auto-detect nahi hota toh manually select karo
 
----
+**Step 5c — Operator Select Karo**
+- Airtel, Jio, Vi, BSNL, etc. (system mein registered operators)
+- Auto-detect ne jo bhara use change bhi kar sakte ho
 
-### 11. Wallet Management (Admin)
+**Step 5d — Circle Select Karo**
+- Maharashtra, Delhi, Karnataka, etc.
+- Auto-detect se fill hota hai
 
-**Route:** `http://localhost:5173/admin/wallet`
+**Step 5e — Plan Select Karo (Optional)**
+- Right side mein available plans grid dikhega
+- Koi plan card click karo → amount automatically fill ho jaata hai
+- Ya manually amount type karo
 
-**Retailer ki wallet manage karo:**
-- Search box mein retailer ka naam ya phone search karo (min 2 chars)
-- Search results mein **View** — wallet balance aur recent transactions dekho
-- **Credit** — retailer ki wallet mein paisa daalo
-- **Debit** — retailer ki wallet se paisa nikalo
-- **Freeze** — wallet band karo (reason daalo)
-- **Unfreeze** — wallet phir se active karo
-- Niche **Wallet Ledger** table mein sab transactions dikhte hain
+**Step 5f — Submit Karo**
+- **Initiate Recharge** button click karo
+- "Recharge initiated!" toast aayega
+- Last Transaction card left side mein update ho jaata hai
+- Status real-time update hota hai (Socket.IO se) — SUCCESS, FAILED, PENDING
 
----
-
-### 12. All Transactions (Admin)
-
-**Route:** `http://localhost:5173/admin/recharge`
-
-Sab retailers ke sab recharge transactions.
-
-- Status filter se filter karo
-- **Retry** button (↻) — FAILED transactions dobara try karo
-- **Refund** button — SUCCESS transactions ka refund karo (reason daalna hoga)
+**Wallet Balance:** Left side mein current balance dikhta hai. Recharge successful hone par balance automatically cut ho jaata hai.
 
 ---
 
-### 13. Users Management (Admin)
+## STEP 6 — Apni Transactions Dekhna (Retailer)
 
-**Route:** `http://localhost:5173/admin/users`
+Recharge page par hi neeche **My Transactions** table hai:
 
-- **Search** by name ya phone
-- **Role filter** — All, Retailer, Admin, Super Admin
-- **Add User** — naya user banao (role, email, phone, password set karo)
-- **Eye icon** — user ki full details dekho
-- **Pencil icon** — name, business name, GST, PAN update karo
-- **Ban icon** — user ko block karo (reason daalo)
-- **Checkmark icon** — blocked user ko unblock karo
-- **Delete icon** — user delete karo (sirf Super Admin)
+- **Filter by Status**: SUCCESS, FAILED, PENDING, etc.
+- **Filter by Mobile**: Kisi specific number ke transactions dhundho
+- Pagination available hai
 
 ---
 
-### 14. Operators & Plans (Admin)
+## STEP 7 — Apna Wallet Statement Dekhna (Retailer)
 
-**Route:** `http://localhost:5173/admin/operators`
+**URL:** `http://localhost:5173/wallet`
 
-Do tabs hain — **Operators** aur **Plans**.
-
-**Operators tab:**
-- **Add Operator** — naam, code, type, min/max amount, commission % set karo
-- Edit (pencil) ya Deactivate (trash) kar sakte ho
-
-**Plans tab:**
-- **Add Plan** — operator select karo, circle select karo, amount, validity, description daalo
-- Plans recharge page par automatically show hote hain jab matching operator/circle select hota hai
+- Top mein current **balance** dikhta hai
+- Total **Credit** aur total **Debit** summary
+- Niche poori **Transaction Statement** — har credit/debit entry with description aur date
+- Date filter available hai
 
 ---
 
-### 15. Logs (Admin)
+## STEP 8 — Apni Reports Dekhna (Retailer)
 
-**Route:** `http://localhost:5173/admin/logs`
+**URL:** `http://localhost:5173/reports`
 
-Teen tabs hain:
-
-| Tab | Kya hai |
-|---|---|
-| Activity Logs | Kaun user ne kya action kiya — module filter available |
-| Audit Logs | Sensitive changes ka record — severity filter (LOW/MEDIUM/HIGH/CRITICAL) |
-| Webhook Logs | Provider se aaye webhook callbacks — processed ya nahi |
+- Date range select karo (default last 30 days)
+- **My Recharge Summary**: Total transactions, amount, success/fail count
+- **My Wallet Summary**: Total credit, total debit, etc.
 
 ---
 
-### 16. Provider (Admin)
-
-**Route:** `http://localhost:5173/admin/provider`
-
-MRobotics provider ka live data:
-
-- **Provider Balance** — current API wallet balance (refresh button se update karo)
-- **Operators list** — provider ke saare operators
-- **Circles list** — provider ke saare circles
-- **Fetch Plans** — operator code aur circle code daalo, **Fetch Plans** click karo — live plans aayenge
+## ADMIN OPERATIONS
 
 ---
 
-### 17. Settings (Admin)
+## Admin — Sab Transactions Dekhna
 
-**Route:** `http://localhost:5173/admin/settings`
+**URL:** `http://localhost:5173/admin/recharge`
 
-Application settings manage karo:
+Sab retailers ke sab recharge transactions ek jagah:
+
+- **Mobile filter**: Kisi specific number ke transactions dhundho
+- **Status filter**: SUCCESS, FAILED, PENDING, etc.
+- **Retry button** (↻): FAILED ya TIMEOUT transactions dobara try karo
+- **Refund button**: SUCCESS transaction ka refund karo (reason daalna hoga)
+- Real-time updates — jab bhi koi retailer recharge kare, table automatically refresh hota hai
+
+---
+
+## Admin — Wallet Management
+
+**URL:** `http://localhost:5173/admin/wallet`
+
+**Retailer wallet dhundho:**
+1. Search box mein naam ya phone daalo
+2. Results mein:
+   - **View**: Wallet balance + recent transactions
+   - **Credit**: Paisa add karo
+   - **Debit**: Paisa nikalo (penalty, chargeback)
+   - **Freeze**: Wallet band karo
+   - **Unfreeze**: Wallet dobara activate karo
+
+**Wallet Ledger:**
+Niche table mein sab users ke sab wallet transactions dikhte hain — CREDIT, DEBIT, REFUND, COMMISSION, etc.
+
+---
+
+## Admin — Operators Manage Karna
+
+**URL:** `http://localhost:5173/admin/operators`
+
+**Operators Tab:**
+- **Add Operator**: Naam, Code (AIRTEL), Type (Mobile Prepaid), Min/Max amount, Commission %
+- Edit ya Deactivate operators
+
+**Plans Tab:**
+- **Add Plan**: Operator select, Circle select, Amount, Validity (days), Description
+- Ye plans retailer ke recharge form par automatically dikhte hain
+
+> Plans add karne ke baad retailers recharge form mein plan cards mein dekh sakte hain.
+
+---
+
+## Admin — Users Manage Karna
+
+**URL:** `http://localhost:5173/admin/users`
+
+- **Search**: Name ya phone se filter
+- **Role filter**: Retailer, Admin, Super Admin
+- **Add User**: Naya account banao
+- **Edit** (pencil icon): Name, business name, GST, PAN update karo
+- **Block/Unblock**: User ko temporarily disable karo
+- **View** (eye icon): Full user details dekho
+- **Delete** (Super Admin only): Permanent delete
+
+---
+
+## Admin — Reports
+
+**URL:** `http://localhost:5173/reports`
+
+4 tabs:
+
+**Overview:**
+- Total sales, transactions, success rate, commission summary
+- Daily sales line chart
+- Sales by operator bar chart
+
+**Recharge:**
+- Paginated recharge report with status filter
+- Date range filter
+
+**Wallet:**
+- Sab wallet transactions paginated
+
+**Commission:**
+- Har retailer ne kitna commission kamaya
+- Commission rate × total sales amount
+
+---
+
+## Admin — Provider (MRobotics)
+
+**URL:** `http://localhost:5173/admin/provider`
+
+- **Live Balance**: MRobotics API se current balance (Refresh button se update)
+- **Operators**: Provider ke registered operators
+- **Circles**: Provider ke circles
+- **Fetch Plans**: Operator Code + Circle Code daalo → live plans fetch karo
+
+---
+
+## Admin — Settings
+
+**URL:** `http://localhost:5173/admin/settings`
+
+Important settings:
 
 | Setting | Kya karta hai |
 |---|---|
-| app.maintenanceMode | true karo toh poori site maintenance page dikhayegi |
-| app.supportEmail | Support email set karo |
-| app.appName | Application ka naam |
-| wallet.commissionRate | Default commission % |
-| wallet.minRechargeAmount | Minimum recharge amount |
-| wallet.maxRechargeAmount | Maximum recharge amount |
+| `app.maintenanceMode` | `true` karo → poori site maintenance page dikhayegi |
+| `app.supportEmail` | Support contact |
+| `wallet.commissionRate` | Default commission % (0.02 = 2%) |
+| `wallet.minRechargeAmount` | Minimum recharge in ₹ |
+| `wallet.maxRechargeAmount` | Maximum recharge in ₹ |
 
-Har setting ke saate **Save** button hai. Niche sab settings ek saath bhi edit kar sakte ho.
-
----
-
-## Real-Time Features
-
-Ye cheezein automatically update hoti hain bina page refresh ke:
-
-- **Recharge status** — jaise hi backend se update aaye, transaction table mein status change ho jaata hai
-- **Wallet balance** — recharge hone ke baad automatically update hota hai
-- **Notifications** — nai notification aane par bell icon par badge dikhtaa hai aur toast message aata hai
-- **Wallet freeze/unfreeze** — agar admin ne freeze kiya toh toast message aata hai
+- Har setting ke saath **Save** button hai individual save ke liye
+- **Save All** button (Super Admin only) — sab changes ek saath save
 
 ---
 
-## Navigation Guide
+## Admin — Logs
 
-| Page | Route | Kaun dekh sakta hai |
-|---|---|---|
-| Login | /login | Sabke liye |
-| Register | /register | Naye retailers |
-| Dashboard | /dashboard | Admin + Retailer |
-| Recharge | /recharge | Retailer only |
-| My Wallet | /wallet | Retailer only |
-| Reports | /reports | Admin + Retailer |
-| Notifications | /notifications | Admin + Retailer |
-| API Keys | /api-keys | Admin + Retailer |
-| Profile | /profile | Admin + Retailer |
-| Wallet Mgmt | /admin/wallet | Admin only |
-| All Txns | /admin/recharge | Admin only |
-| Users | /admin/users | Admin only |
-| Operators | /admin/operators | Admin only |
-| Logs | /admin/logs | Admin only |
-| Provider | /admin/provider | Admin only |
-| Settings | /admin/settings | Admin only |
+**URL:** `http://localhost:5173/admin/logs`
+
+3 tabs:
+
+**Activity Logs:**
+- Kaun user ne kya action kiya, kab, kis IP se
+- Module filter: recharge, wallet, auth, users, operators
+
+**Audit Logs:**
+- Sensitive operations ka record — user block, wallet credit, setting change
+- Severity filter: LOW, MEDIUM, HIGH, CRITICAL
+
+**Webhook Logs:**
+- MRobotics se aaye webhook callbacks
+- `isProcessed: false` filter karo unprocessed webhooks dekhne ke liye
 
 ---
 
-## Common Issues
+## Notifications
 
-**Q: Recharge ke baad balance update nahi hua?**
-A: Real-time socket connected hai — automatically update hona chahiye. Agar nahi hua toh page refresh karo.
+**URL:** `http://localhost:5173/notifications`
 
-**Q: Login ke baad dashboard blank hai?**
-A: Backend server check karo ki `http://localhost:8080` chal raha hai ya nahi.
+**Retailers:**
+- Recharge success/fail, wallet credit/debit, account lock, password change — sab notifications yahan
+- Unread notifications bell icon par badge se dikhengi
+- **Mark all read** button
 
-**Q: Notifications bell par count nahi dikh raha?**
-A: Notifications page par jaao — wahan sab notifications dikhenge.
+**Admins:**
+- **Send** button: Kisi specific user ko notification bhejo (User ID daalo)
+- **Broadcast** button: Sab users ya specific role ko notification bhejo
 
-**Q: API Key raw value miss ho gayi?**
-A: Key create karte waqt ek hi baar dikhta hai — revoke karo aur naya banao.
+---
 
-**Q: Maintenance mode on ho gaya aur kuch nahi dikh raha?**
-A: Settings page par jaao aur `app.maintenanceMode` ko `false` karo.
+## API Keys
+
+**URL:** `http://localhost:5173/api-keys`
+
+Agar programmatically recharge karna ho (third-party integration):
+
+1. **Create Key** click karo
+2. Naam daalo + permissions select karo
+3. Expiry date optional
+4. **Create Key** → **Raw key ek hi baar dikhega** — turant copy karo
+5. API calls mein header mein daalo: `X-API-Key: crm_<rawkey>`
+
+---
+
+## Profile
+
+**URL:** `http://localhost:5173/profile`
+
+- **Avatar change**: Camera icon click karo
+- **Profile edit**: Name, business, GST, PAN, address
+- **Password change**: Current + new password
+- **Active Sessions**: Kaun se devices par login hai
+- **Revoke All**: Sab devices se logout
+- **Login History**: Kab kahan se login hua
+
+---
+
+## COMPLETE USER JOURNEY — Summary
+
+```
+Super Admin Login
+    │
+    ├── Operators add karo (Admin/Operators page)
+    ├── Plans add karo (Admin/Operators page)
+    │
+    ├── Retailer account banao (Admin/Users page)
+    ├── Retailer wallet mein credit karo (Admin/Wallet page)
+    │
+Retailer Login
+    │
+    ├── Recharge page kholo
+    ├── Mobile number daalo (auto-detect operator)
+    ├── Operator + Circle + Amount/Plan select karo
+    ├── Initiate Recharge → Real-time status update
+    │
+    ├── Wallet page → balance aur statement dekho
+    └── Reports page → apna performance dekho
+```
+
+---
+
+## Real-Time Features (Automatic)
+
+Ye cheezein bina page refresh ke hoti hain:
+
+- Recharge initiate karo → status PENDING → SUCCESS/FAILED automatically update
+- Admin wallet credit kare → retailer ka balance automatically update
+- Admin wallet freeze kare → retailer ko immediately notification
+- Nai notification aaye → bell par badge update + toast message
+- Admin ko `recharge:update:all` event — kisi bhi retailer ka recharge update ho to admin page live refresh
+
+---
+
+## Common Issues & Solutions
+
+**Q: Recharge fail ho raha hai?**
+A: Wallet balance check karo. Agar balance hai aur phir bhi fail ho raha hai, Admin se contact karo — wo retry kar sakta hai.
+
+**Q: Login nahi ho raha?**
+A: 5 baar galat password se 30 min lock hota hai. Wait karo ya Admin se unblock karwao.
+
+**Q: Operator select nahi ho raha / list khali hai?**
+A: Admin se operators add karwao (`/admin/operators`).
+
+**Q: Wallet balance nahi dikh raha?**
+A: Page refresh karo. Socket.IO real-time update karta hai, agar disconnect ho toh refresh karo.
+
+**Q: Maintenance page aa rahi hai?**
+A: Admin ne `app.maintenanceMode` true kiya hoga. Admin Settings page par jaake false kare.
+
+**Q: API Key ka raw value miss ho gaya?**
+A: Revoke karo aur naya banao — raw key sirf ek baar dikhti hai.
