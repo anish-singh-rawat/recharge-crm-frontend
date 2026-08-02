@@ -121,7 +121,12 @@ export default function AdminWallet() {
   const { data: searchedUsers } = useQuery({
     queryKey: ['users', 'wallet-search', search],
     queryFn: () => usersApi.getUsers({ search, limit: 10, role: 'retailer' }),
-    select: (r) => r.data.data?.items || [],
+    select: (r) => {
+      const d = r.data.data
+      if (Array.isArray(d)) return d
+      if (Array.isArray(d?.items)) return d.items
+      return []
+    },
     enabled: ready && search.length >= 2,
   })
 

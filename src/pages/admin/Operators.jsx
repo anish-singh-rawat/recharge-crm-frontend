@@ -151,7 +151,12 @@ export default function Operators() {
   const { data: circles = [] } = useQuery({
     queryKey: ['circles'],
     queryFn: () => operatorsApi.getCircles(),
-    select: (r) => r.data.data || [],
+    select: (r) => {
+      const d = r.data.data
+      if (Array.isArray(d)) return d
+      if (Array.isArray(d?.items)) return d.items
+      return []
+    },
     enabled: ready,
   })
 
@@ -174,7 +179,7 @@ export default function Operators() {
   })
 
   const operatorOptions = (operators?.items || []).map((o) => ({ value: o._id, label: o.name }))
-  const circleOptions = circles.map((c) => ({ value: c._id, label: c.name }))
+  const circleOptions = (Array.isArray(circles) ? circles : []).map((c) => ({ value: c._id, label: c.name }))
 
   return (
     <div className="space-y-6">

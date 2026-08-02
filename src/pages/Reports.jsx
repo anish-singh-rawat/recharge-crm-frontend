@@ -56,14 +56,24 @@ export default function Reports() {
   const { data: salesByDay } = useQuery({
     queryKey: ['reports', 'sales-by-day', dateRange],
     queryFn: () => reportsApi.getSalesByDay(dateRange),
-    select: (r) => r.data.data || [],
+    select: (r) => {
+      const d = r.data.data
+      if (Array.isArray(d)) return d
+      if (Array.isArray(d?.items)) return d.items
+      return []
+    },
     enabled: ready && admin && tab === 'overview',
   })
 
   const { data: salesByOperator } = useQuery({
     queryKey: ['reports', 'sales-by-operator', dateRange],
     queryFn: () => reportsApi.getSalesByOperator(dateRange),
-    select: (r) => r.data.data || [],
+    select: (r) => {
+      const d = r.data.data
+      if (Array.isArray(d)) return d
+      if (Array.isArray(d?.items)) return d.items
+      return []
+    },
     enabled: ready && admin && tab === 'overview',
   })
 
@@ -91,7 +101,12 @@ export default function Reports() {
   const { data: commissionReport, isLoading: commissionLoading } = useQuery({
     queryKey: ['reports', 'commission', dateRange],
     queryFn: () => reportsApi.getCommissionReport(dateRange),
-    select: (r) => r.data.data || [],
+    select: (r) => {
+      const d = r.data.data
+      if (Array.isArray(d)) return d
+      if (Array.isArray(d?.items)) return d.items
+      return []
+    },
     enabled: ready && admin && tab === 'commission',
   })
 

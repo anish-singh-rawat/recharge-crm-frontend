@@ -51,7 +51,12 @@ export default function Dashboard() {
   const { data: salesByDay } = useQuery({
     queryKey: ['reports', 'sales-by-day'],
     queryFn: () => reportsApi.getSalesByDay({}),
-    select: (r) => r.data.data || [],
+    select: (r) => {
+      const d = r.data.data
+      if (Array.isArray(d)) return d
+      if (Array.isArray(d?.items)) return d.items
+      return []
+    },
     enabled: ready && admin,
   })
 

@@ -25,21 +25,36 @@ export default function Provider() {
   const { data: operators, isLoading: opsLoading } = useQuery({
     queryKey: ['provider', 'operators'],
     queryFn: () => providerApi.getProviderOperators(),
-    select: (r) => r.data.data || [],
+    select: (r) => {
+      const d = r.data.data
+      if (Array.isArray(d)) return d
+      if (Array.isArray(d?.items)) return d.items
+      return []
+    },
     enabled: ready,
   })
 
   const { data: circles, isLoading: circlesLoading } = useQuery({
     queryKey: ['provider', 'circles'],
     queryFn: () => providerApi.getProviderCircles(),
-    select: (r) => r.data.data || [],
+    select: (r) => {
+      const d = r.data.data
+      if (Array.isArray(d)) return d
+      if (Array.isArray(d?.items)) return d.items
+      return []
+    },
     enabled: ready,
   })
 
   const { data: plans, isLoading: plansLoading } = useQuery({
     queryKey: ['provider', 'plans', planParams],
     queryFn: () => providerApi.getProviderPlans(planParams.operatorCode, planParams.circleCode),
-    select: (r) => r.data.data || [],
+    select: (r) => {
+      const d = r.data.data
+      if (Array.isArray(d)) return d
+      if (Array.isArray(d?.items)) return d.items
+      return []
+    },
     enabled: ready && fetchPlans && !!planParams.operatorCode && !!planParams.circleCode,
   })
 

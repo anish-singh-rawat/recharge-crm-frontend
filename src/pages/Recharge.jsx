@@ -68,21 +68,36 @@ export default function Recharge() {
   const { data: operators = [] } = useQuery({
     queryKey: ['operators', 'active', rechargeType],
     queryFn: () => operatorsApi.getActiveOperators(rechargeType),
-    select: (r) => r.data.data || [],
+    select: (r) => {
+      const d = r.data.data
+      if (Array.isArray(d)) return d
+      if (Array.isArray(d?.items)) return d.items
+      return []
+    },
     enabled: ready && !!rechargeType,
   })
 
   const { data: circles = [] } = useQuery({
     queryKey: ['circles', 'all'],
     queryFn: () => operatorsApi.getCircles(),
-    select: (r) => r.data.data || [],
+    select: (r) => {
+      const d = r.data.data
+      if (Array.isArray(d)) return d
+      if (Array.isArray(d?.items)) return d.items
+      return []
+    },
     enabled: ready,
   })
 
   const { data: plans = [] } = useQuery({
     queryKey: ['plans', operatorId, circleId],
     queryFn: () => operatorsApi.getPlansByOperator(operatorId, circleId),
-    select: (r) => r.data.data || [],
+    select: (r) => {
+      const d = r.data.data
+      if (Array.isArray(d)) return d
+      if (Array.isArray(d?.items)) return d.items
+      return []
+    },
     enabled: ready && !!operatorId && !!circleId,
   })
 
