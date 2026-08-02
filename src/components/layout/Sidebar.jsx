@@ -49,9 +49,8 @@ export default function Sidebar({ collapsed, onToggle, unreadCount = 0 }) {
     logout()
   }
 
-  const visibleItems = navItems.filter((item) =>
-    item.roles.includes(user?.role)
-  )
+  const role = user?.role || ''
+  const visibleItems = navItems.filter((item) => item.roles.includes(role))
 
   return (
     <aside
@@ -95,6 +94,16 @@ export default function Sidebar({ collapsed, onToggle, unreadCount = 0 }) {
       )}
 
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+        {visibleItems.length === 0 && (
+          <div className="space-y-1 px-2">
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className="h-9 rounded-lg bg-[#334155] animate-pulse opacity-40"
+              />
+            ))}
+          </div>
+        )}
         {visibleItems.map((item) => (
           <NavLink
             key={item.to}

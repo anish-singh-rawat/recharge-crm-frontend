@@ -56,25 +56,32 @@ export default function Profile() {
   const { data: profile } = useQuery({
     queryKey: ['profile'],
     queryFn: () => authApi.getProfile(),
-    select: (r) => r.data.data,
+    select: (r) => r.data.data?.user || r.data.data,
     enabled: isAuthenticated,
   })
 
   const { data: sessions } = useQuery({
     queryKey: ['sessions'],
     queryFn: () => authApi.getSessions(),
-    select: (r) => r.data.data || [],
+    select: (r) => {
+      const d = r.data.data
+      return Array.isArray(d) ? d : (d?.sessions || d?.devices || [])
+    },
     enabled: isAuthenticated,
   })
 
   const { data: loginHistory } = useQuery({
     queryKey: ['login-history'],
     queryFn: () => authApi.getLoginHistory(),
-    select: (r) => r.data.data || [],
+    select: (r) => {
+      const d = r.data.data
+      return Array.isArray(d) ? d : (d?.history || d?.logs || [])
+    },
     enabled: isAuthenticated,
   })
 
   const displayUser = profile || user
+  const activeSessions = sessions?.length ? sessions : (displayUser?.devices || [])
 
   const profileForm = useForm({
     resolver: zodResolver(profileSchema),
@@ -95,7 +102,8 @@ export default function Profile() {
     mutationFn: (data) => authApi.updateProfile(data),
     onSuccess: (res) => {
       toast.success('Profile updated')
-      updateUser(res.data.data)
+      const updated = res.data.data?.user || res.data.data
+      updateUser(updated)
       queryClient.invalidateQueries({ queryKey: ['profile'] })
     },
     onError: (err) => toast.error(extractError(err)),
@@ -127,7 +135,8 @@ export default function Profile() {
     },
     onSuccess: (res) => {
       toast.success('Avatar updated')
-      updateUser({ avatar: res.data.data?.avatar })
+      const avatarUrl = res.data.data?.user?.avatar || res.data.data?.avatar
+      updateUser({ avatar: avatarUrl })
       queryClient.invalidateQueries({ queryKey: ['profile'] })
     },
     onError: (err) => toast.error(extractError(err)),
@@ -313,7 +322,7 @@ export default function Profile() {
             </form>
           </Card>
 
-          {sessions?.length > 0 && (
+          {activeSessions?.length > 0 && (
             <Card>
               <div className="flex items-center justify-between mb-4">
                 <CardHeader title="Active Sessions" icon={<Monitor size={16} />} className="mb-0" />
@@ -328,9 +337,9 @@ export default function Profile() {
                 </Button>
               </div>
               <div className="space-y-1">
-                {sessions.map((s, i) => (
+                {activeSessions.map((s, i) => (
                   <div
-                    key={i}
+                    key={s._id || i}
                     className="flex items-center justify-between py-2 border-b border-[#E2E8F0] last:border-0 text-sm"
                   >
                     <div className="flex items-center gap-2">
@@ -342,7 +351,7 @@ export default function Profile() {
                         )}
                       </div>
                     </div>
-                    <span className="text-xs text-[#94A3B8]">{formatDateTime(s.createdAt)}</span>
+                    <span className="text-xs text-[#94A3B8]">{formatDateTime(s.lastLoginAt || s.createdAt)}</span>
                   </div>
                 ))}
               </div>

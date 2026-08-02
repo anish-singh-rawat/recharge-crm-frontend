@@ -18,6 +18,7 @@ import Pagination from '@/components/ui/Pagination'
 import EmptyState from '@/components/ui/EmptyState'
 import { extractError } from '@/utils/format'
 import { RECHARGE_TYPES } from '@/utils/constants'
+import { useIsReady } from '@/hooks/useIsReady'
 
 const operatorSchema = z.object({
   name: z.string().min(1, 'Name required'),
@@ -138,23 +139,27 @@ export default function Operators() {
   const [opModal, setOpModal] = useState(null)
   const [planModal, setPlanModal] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const ready = useIsReady()
 
   const { data: operators, isLoading: opLoading } = useQuery({
     queryKey: ['operators', { page: opPage }],
     queryFn: () => operatorsApi.getOperators({ page: opPage, limit: 20 }),
     select: (r) => r.data.data,
+    enabled: ready,
   })
 
   const { data: circles = [] } = useQuery({
     queryKey: ['circles'],
     queryFn: () => operatorsApi.getCircles(),
     select: (r) => r.data.data || [],
+    enabled: ready,
   })
 
   const { data: plans, isLoading: plansLoading } = useQuery({
     queryKey: ['plans', { page: planPage }],
     queryFn: () => operatorsApi.getPlans({ page: planPage, limit: 20 }),
     select: (r) => r.data.data,
+    enabled: ready,
   })
 
   const deleteMutation = useMutation({

@@ -14,17 +14,27 @@ const loadPersistedUser = () => {
 
 const persistUser = (user) => {
   try {
-    if (user) localStorage.setItem(USER_KEY, JSON.stringify(user))
-    else localStorage.removeItem(USER_KEY)
+    if (user && user.role) {
+      localStorage.setItem(USER_KEY, JSON.stringify(user))
+    } else if (!user) {
+      localStorage.removeItem(USER_KEY)
+    }
   } catch {}
 }
 
 const persistedUser = loadPersistedUser()
 const hasRefreshToken = !!localStorage.getItem('refreshToken')
 
+if (persistedUser && !persistedUser.role) {
+  try { localStorage.removeItem(USER_KEY) } catch {}
+}
+
+const validPersistedUser = persistedUser?.role ? persistedUser : null
+const hasPersistedSession = !!(validPersistedUser && hasRefreshToken)
+
 const useAuthStore = create((set, get) => ({
-  user: persistedUser,
-  isAuthenticated: !!(persistedUser && hasRefreshToken),
+  user: validPersistedUser,
+  isAuthenticated: hasPersistedSession,
   isInitialized: false,
 
   setUser: (user) => {
@@ -33,10 +43,18 @@ const useAuthStore = create((set, get) => ({
   },
 
   login: (data) => {
-    const { user, accessToken, refreshToken } = data
-    setAccessToken(accessToken)
+    const accessToken = data.accessToken
+    const refreshToken = data.refreshToken
+    let user = data.user || data.profile || null
+
+    if (!user && data.data) {
+      user = data.data.user || data.data.profile || data.data
+    }
+
+    if (accessToken) setAccessToken(accessToken)
     if (refreshToken) localStorage.setItem('refreshToken', refreshToken)
-    persistUser(user)
+    if (user) persistUser(user)
+
     set({ user, isAuthenticated: true, isInitialized: true })
   },
 
@@ -48,6 +66,8 @@ const useAuthStore = create((set, get) => ({
   },
 
   setInitialized: (value) => set({ isInitialized: value }),
+
+  setTokenReady: () => set({ isInitialized: true }),
 
   updateUser: (updates) =>
     set((state) => {

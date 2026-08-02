@@ -8,6 +8,7 @@ import Pagination from '@/components/ui/Pagination'
 import EmptyState from '@/components/ui/EmptyState'
 import { formatDateTime } from '@/utils/format'
 import { FileText } from 'lucide-react'
+import { useIsReady } from '@/hooks/useIsReady'
 
 const TABS = [
   { key: 'activity', label: 'Activity Logs' },
@@ -27,26 +28,27 @@ export default function Logs() {
   const [page, setPage] = useState(1)
   const [module, setModule] = useState('')
   const [severity, setSeverity] = useState('')
+  const ready = useIsReady()
 
   const { data: activityData, isLoading: actLoading } = useQuery({
     queryKey: ['logs', 'activity', { page, module }],
     queryFn: () => logsApi.getActivityLogs({ page, limit: 20, ...(module && { module }) }),
     select: (r) => r.data.data,
-    enabled: tab === 'activity',
+    enabled: ready && tab === 'activity',
   })
 
   const { data: auditData, isLoading: auditLoading } = useQuery({
     queryKey: ['logs', 'audit', { page, severity }],
     queryFn: () => logsApi.getAuditLogs({ page, limit: 20, ...(severity && { severity }) }),
     select: (r) => r.data.data,
-    enabled: tab === 'audit',
+    enabled: ready && tab === 'audit',
   })
 
   const { data: webhookData, isLoading: webhookLoading } = useQuery({
     queryKey: ['logs', 'webhooks', { page }],
     queryFn: () => logsApi.getWebhookLogs({ page, limit: 20 }),
     select: (r) => r.data.data,
-    enabled: tab === 'webhooks',
+    enabled: ready && tab === 'webhooks',
   })
 
   const isLoading = actLoading || auditLoading || webhookLoading

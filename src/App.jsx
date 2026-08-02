@@ -46,7 +46,7 @@ const queryClient = new QueryClient({
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
 
 function AppInitializer({ children }) {
-  const { login, logout, setInitialized, isInitialized, isAuthenticated } = useAuthStore()
+  const { login, logout, isAuthenticated, isInitialized, setTokenReady } = useAuthStore()
 
   useEffect(() => {
     const handleAuthLogout = () => logout()
@@ -82,8 +82,14 @@ function AppInitializer({ children }) {
         setAccessToken(accessToken)
         if (newRT) localStorage.setItem('refreshToken', newRT)
 
+        setTokenReady()
+
         const profileRes = await authApi.getProfile()
-        const freshUser = profileRes.data?.data || profileRes.data
+        const freshUser =
+          profileRes.data?.data?.user ||
+          profileRes.data?.data ||
+          profileRes.data?.user ||
+          profileRes.data
 
         login({
           user: freshUser,
@@ -98,7 +104,7 @@ function AppInitializer({ children }) {
     init()
   }, [])
 
-  if (!isInitialized && !isAuthenticated) {
+  if (!isAuthenticated && !isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
         <div className="flex flex-col items-center gap-3">

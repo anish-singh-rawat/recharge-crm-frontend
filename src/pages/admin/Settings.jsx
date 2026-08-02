@@ -8,6 +8,7 @@ import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { PageLoader } from '@/components/ui/LoadingSpinner'
 import { extractError } from '@/utils/format'
+import { useIsReady } from '@/hooks/useIsReady'
 
 const SETTING_GROUPS = [
   {
@@ -28,6 +29,7 @@ export default function Settings() {
   const queryClient = useQueryClient()
   const [values, setValues] = useState({})
   const [saving, setSaving] = useState({})
+  const ready = useIsReady()
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['settings', 'all'],
@@ -38,6 +40,7 @@ export default function Settings() {
       items.forEach((s) => { map[s.key] = s.value })
       return map
     },
+    enabled: ready,
   })
 
   useEffect(() => {

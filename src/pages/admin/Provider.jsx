@@ -8,34 +8,39 @@ import Badge from '@/components/ui/Badge'
 import { TableSkeleton } from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import { formatCurrency } from '@/utils/format'
+import { useIsReady } from '@/hooks/useIsReady'
 
 export default function Provider() {
   const [planParams, setPlanParams] = useState({ operatorCode: '', circleCode: '' })
   const [fetchPlans, setFetchPlans] = useState(false)
+  const ready = useIsReady()
 
   const { data: balance, isLoading: balanceLoading, refetch: refetchBalance } = useQuery({
     queryKey: ['provider', 'balance'],
     queryFn: () => providerApi.getProviderBalance(),
     select: (r) => r.data.data,
+    enabled: ready,
   })
 
   const { data: operators, isLoading: opsLoading } = useQuery({
     queryKey: ['provider', 'operators'],
     queryFn: () => providerApi.getProviderOperators(),
     select: (r) => r.data.data || [],
+    enabled: ready,
   })
 
   const { data: circles, isLoading: circlesLoading } = useQuery({
     queryKey: ['provider', 'circles'],
     queryFn: () => providerApi.getProviderCircles(),
     select: (r) => r.data.data || [],
+    enabled: ready,
   })
 
   const { data: plans, isLoading: plansLoading } = useQuery({
     queryKey: ['provider', 'plans', planParams],
     queryFn: () => providerApi.getProviderPlans(planParams.operatorCode, planParams.circleCode),
     select: (r) => r.data.data || [],
-    enabled: fetchPlans && !!planParams.operatorCode && !!planParams.circleCode,
+    enabled: ready && fetchPlans && !!planParams.operatorCode && !!planParams.circleCode,
   })
 
   return (
