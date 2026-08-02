@@ -1,13 +1,12 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
-import { useQuery } from '@tanstack/react-query'
 
 import useAuthStore from '@/store/authStore'
 import { authApi } from '@/api/auth'
 import { settingsApi } from '@/api/settings'
-import { setAccessToken } from '@/lib/axios'
+import api, { setAccessToken } from '@/lib/axios'
 
 import Layout from '@/components/layout/Layout'
 import { ProtectedRoute, AdminRoute, GuestRoute } from '@/components/auth/ProtectedRoute'
@@ -59,18 +58,17 @@ function AppInitializer({ children }) {
         return
       }
       try {
-        const res = await import('@/lib/axios').then(({ default: api }) =>
-          api.post('/auth/refresh-token', { refreshToken })
-        )
-        const { accessToken, refreshToken: newRT, user } = res.data.data || {}
+        const res = await api.post('/auth/refresh-token', { refreshToken })
+        const { accessToken, refreshToken: newRT } = res.data.data || {}
         if (accessToken) {
           setAccessToken(accessToken)
           if (newRT) localStorage.setItem('refreshToken', newRT)
-          if (user) login({ user, accessToken, refreshToken: newRT || refreshToken })
-          else {
-            const profileRes = await authApi.getProfile()
-            login({ user: profileRes.data.data, accessToken, refreshToken: newRT || refreshToken })
-          }
+          const profileRes = await authApi.getProfile()
+          login({
+            user: profileRes.data.data,
+            accessToken,
+            refreshToken: newRT || refreshToken,
+          })
         } else {
           logout()
         }

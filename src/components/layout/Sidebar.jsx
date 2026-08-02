@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
   Zap,
@@ -38,7 +38,7 @@ const navItems = [
 ]
 
 export default function Sidebar({ collapsed, onToggle, unreadCount = 0 }) {
-  const { user, logout, isAdmin } = useAuthStore()
+  const { user, logout } = useAuthStore()
 
   const handleLogout = async () => {
     try {

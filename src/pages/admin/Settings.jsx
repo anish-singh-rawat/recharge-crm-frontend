@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Save, RefreshCw } from 'lucide-react'
+import { Save } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { settingsApi } from '@/api/settings'
 import Card, { CardHeader } from '@/components/ui/Card'
@@ -38,8 +38,11 @@ export default function Settings() {
       items.forEach((s) => { map[s.key] = s.value })
       return map
     },
-    onSuccess: (data) => setValues(data),
   })
+
+  useEffect(() => {
+    if (settings) setValues(settings)
+  }, [settings])
 
   const updateMutation = useMutation({
     mutationFn: ({ key, value }) => settingsApi.updateSetting(key, value),

@@ -14,12 +14,15 @@ export default function Card({ children, className = '', padding = true }) {
   )
 }
 
-export function CardHeader({ title, subtitle, action, className = '' }) {
+export function CardHeader({ title, subtitle, action, icon, className = '' }) {
   return (
     <div className={clsx('flex items-center justify-between gap-3 mb-4', className)}>
-      <div>
-        <h2 className="text-base font-semibold text-[#0F172A]">{title}</h2>
-        {subtitle && <p className="text-xs text-[#94A3B8] mt-0.5">{subtitle}</p>}
+      <div className="flex items-center gap-2">
+        {icon && <span className="text-[#94A3B8]">{icon}</span>}
+        <div>
+          <h2 className="text-base font-semibold text-[#0F172A]">{title}</h2>
+          {subtitle && <p className="text-xs text-[#94A3B8] mt-0.5">{subtitle}</p>}
+        </div>
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>

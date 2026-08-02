@@ -12,7 +12,7 @@ import {
   Cell,
   Legend,
 } from 'recharts'
-import { Zap, DollarSign, TrendingUp, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { Zap, DollarSign, TrendingUp, CheckCircle } from 'lucide-react'
 import { reportsApi } from '@/api/reports'
 import { rechargeApi } from '@/api/recharge'
 import StatCard from '@/components/ui/StatCard'
