@@ -23,10 +23,31 @@ export const useSocket = (handlers = {}) => {
     if (!socketInstance) {
       socketInstance = io(SOCKET_URL, {
         auth: { token },
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 2000,
+      })
+
+      socketInstance.on('connect_error', async (err) => {
+        if (err.message === 'Invalid token' || err.message === 'Authentication required') {
+          try {
+            const refreshToken = localStorage.getItem('refreshToken')
+            if (!refreshToken) return
+            const { default: axios } = await import('axios')
+            const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
+            const res = await axios.post(`${BASE_URL}/auth/refresh-token`, { refreshToken })
+            const newToken = res.data?.data?.accessToken
+            if (newToken && socketInstance) {
+              const { setAccessToken } = await import('@/lib/axios')
+              setAccessToken(newToken)
+              socketInstance.auth.token = newToken
+              socketInstance.connect()
+            }
+          } catch {
+            window.dispatchEvent(new Event('auth:logout'))
+          }
+        }
       })
     }
 
@@ -34,6 +55,7 @@ export const useSocket = (handlers = {}) => {
 
     const eventNames = [
       'recharge:update',
+      'recharge:update:all',
       'recharge:success',
       'recharge:failed',
       'wallet:update',

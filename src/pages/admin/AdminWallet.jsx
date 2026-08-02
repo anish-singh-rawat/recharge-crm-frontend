@@ -133,7 +133,7 @@ export default function AdminWallet() {
   const { data: userWallet } = useQuery({
     queryKey: ['wallet', 'user', userWalletModal?._id],
     queryFn: () => walletApi.getUserWallet(userWalletModal._id),
-    select: (r) => r.data.data,
+    select: (r) => r.data.data?.wallet || r.data.data,
     enabled: !!userWalletModal,
   })
 

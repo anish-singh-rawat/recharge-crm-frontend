@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, Zap } from 'lucide-react'
+import { Eye, EyeOff, Zap, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { authApi } from '@/api/auth'
 import useAuthStore from '@/store/authStore'
@@ -20,6 +20,7 @@ export default function Login() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
+  const [lockoutMsg, setLockoutMsg] = useState('')
 
   const {
     register,
@@ -28,6 +29,7 @@ export default function Login() {
   } = useForm({ resolver: zodResolver(schema) })
 
   const onSubmit = async (values) => {
+    setLockoutMsg('')
     try {
       const res = await authApi.login({
         ...values,
@@ -39,7 +41,15 @@ export default function Login() {
       toast.success('Welcome back!')
       navigate('/dashboard')
     } catch (err) {
-      toast.error(extractError(err))
+      const msg = err?.response?.data?.message || ''
+      if (
+        msg.toLowerCase().includes('locked') ||
+        msg.toLowerCase().includes('lock')
+      ) {
+        setLockoutMsg(msg)
+      } else {
+        toast.error(extractError(err))
+      }
     }
   }
 
@@ -56,6 +66,13 @@ export default function Login() {
 
         <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-6">
           <h2 className="text-lg font-semibold text-[#0F172A] mb-5">Sign in to your account</h2>
+
+          {lockoutMsg && (
+            <div className="mb-4 flex items-start gap-2.5 p-3 bg-[#FEE2E2] border border-[#DC2626] rounded-lg">
+              <Lock size={16} className="text-[#DC2626] mt-0.5 shrink-0" />
+              <p className="text-sm text-[#DC2626]">{lockoutMsg}</p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <Input
@@ -84,15 +101,12 @@ export default function Login() {
             />
 
             <div className="flex justify-end">
-              <Link
-                to="/forgot-password"
-                className="text-xs text-[#2563EB] hover:underline"
-              >
+              <Link to="/forgot-password" className="text-xs text-[#2563EB] hover:underline">
                 Forgot password?
               </Link>
             </div>
 
-            <Button type="submit" className="w-full" loading={isSubmitting}>
+            <Button type="submit" className="w-full" loading={isSubmitting} disabled={!!lockoutMsg}>
               Sign In
             </Button>
           </form>

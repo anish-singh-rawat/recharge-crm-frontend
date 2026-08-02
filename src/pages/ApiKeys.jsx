@@ -29,7 +29,7 @@ function CreateKeyModal({ open, onClose, onCreated }) {
       allowedIps: [],
     }),
     onSuccess: (res) => {
-      onCreated(res.data.data?.rawKey)
+      onCreated(res.data.data?.rawKey || res.data.data?.key?.rawKey)
       reset()
       onClose()
     },
@@ -125,7 +125,7 @@ export default function ApiKeys() {
   const { data: keys, isLoading } = useQuery({
     queryKey: ['api-keys'],
     queryFn: () => apiKeysApi.getApiKeys(),
-    select: (r) => r.data.data || [],
+    select: (r) => r.data.data?.keys || r.data.data || [],
     enabled: ready,
   })
 

@@ -27,6 +27,7 @@ export default function Provider() {
     queryFn: () => providerApi.getProviderOperators(),
     select: (r) => {
       const d = r.data.data
+      if (Array.isArray(d?.operators)) return d.operators
       if (Array.isArray(d)) return d
       if (Array.isArray(d?.items)) return d.items
       return []
@@ -39,6 +40,7 @@ export default function Provider() {
     queryFn: () => providerApi.getProviderCircles(),
     select: (r) => {
       const d = r.data.data
+      if (Array.isArray(d?.circles)) return d.circles
       if (Array.isArray(d)) return d
       if (Array.isArray(d?.items)) return d.items
       return []
@@ -51,6 +53,7 @@ export default function Provider() {
     queryFn: () => providerApi.getProviderPlans(planParams.operatorCode, planParams.circleCode),
     select: (r) => {
       const d = r.data.data
+      if (Array.isArray(d?.plans)) return d.plans
       if (Array.isArray(d)) return d
       if (Array.isArray(d?.items)) return d.items
       return []
@@ -83,15 +86,11 @@ export default function Provider() {
             <div className="h-8 bg-[#F1F5F9] rounded animate-pulse" />
           ) : (
             <p className="text-2xl font-bold font-mono text-[#0F172A]">
-              {balance?.balance !== undefined
-                ? formatCurrency(balance.balance)
-                : balance?.walletBalance !== undefined
-                ? formatCurrency(balance.walletBalance)
-                : '—'}
+              {balance?.balance !== undefined ? formatCurrency(balance.balance) : '—'}
             </p>
           )}
-          {balance?.status && (
-            <p className="text-xs mt-1 text-[#16A34A]">{balance.status}</p>
+          {balance?.currency && (
+            <p className="text-xs mt-1 text-[#94A3B8]">{balance.currency}</p>
           )}
         </Card>
 

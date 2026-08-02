@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Bell, CheckCheck, Trash2, Radio } from 'lucide-react'
+import { Bell, CheckCheck, Trash2, Radio, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -29,6 +29,83 @@ const broadcastSchema = z.object({
   roles: z.string().optional(),
 })
 
+const sendSchema = z.object({
+  userId: z.string().min(1, 'User ID required'),
+  title: z.string().min(1, 'Title required'),
+  message: z.string().min(1, 'Message required'),
+  type: z.string().min(1, 'Type required'),
+})
+
+function SendNotificationModal({ open, onClose }) {
+  const queryClient = useQueryClient()
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+    resolver: zodResolver(sendSchema),
+    defaultValues: { type: 'INFO' },
+  })
+
+  const mutation = useMutation({
+    mutationFn: (data) => notificationsApi.sendNotification({
+      ...data,
+      channel: 'IN_APP',
+    }),
+    onSuccess: () => {
+      toast.success('Notification sent!')
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      reset()
+      onClose()
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  return (
+    <Modal open={open} onClose={onClose} title="Send Notification" size="sm">
+      <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-3">
+        <Input
+          label="User ID"
+          placeholder="MongoDB ObjectId of user"
+          error={errors.userId?.message}
+          required
+          {...register('userId')}
+        />
+        <Input
+          label="Title"
+          placeholder="Notification title"
+          error={errors.title?.message}
+          required
+          {...register('title')}
+        />
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-[#475569]">
+            Message <span className="text-[#DC2626]">*</span>
+          </label>
+          <textarea
+            placeholder="Notification message"
+            className="w-full border border-[#E2E8F0] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] resize-none"
+            rows={3}
+            {...register('message')}
+          />
+          {errors.message && <p className="text-xs text-[#DC2626]">{errors.message.message}</p>}
+        </div>
+        <Select
+          label="Type"
+          options={NOTIFICATION_TYPES.map((t) => ({ value: t, label: t }))}
+          error={errors.type?.message}
+          required
+          {...register('type')}
+        />
+        <div className="flex gap-3 pt-2">
+          <Button variant="secondary" className="flex-1" onClick={onClose} type="button">
+            Cancel
+          </Button>
+          <Button className="flex-1" type="submit" loading={mutation.isPending} leftIcon={<Send size={14} />}>
+            Send
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 function BroadcastModal({ open, onClose }) {
   const queryClient = useQueryClient()
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
@@ -54,9 +131,17 @@ function BroadcastModal({ open, onClose }) {
   return (
     <Modal open={open} onClose={onClose} title="Broadcast Notification" size="sm">
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-3">
-        <Input label="Title" placeholder="Maintenance Tonight" error={errors.title?.message} required {...register('title')} />
+        <Input
+          label="Title"
+          placeholder="Maintenance Tonight"
+          error={errors.title?.message}
+          required
+          {...register('title')}
+        />
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-[#475569]">Message <span className="text-[#DC2626]">*</span></label>
+          <label className="text-xs font-medium text-[#475569]">
+            Message <span className="text-[#DC2626]">*</span>
+          </label>
           <textarea
             placeholder="Scheduled downtime 2AM–4AM"
             className="w-full border border-[#E2E8F0] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] resize-none"
@@ -82,8 +167,15 @@ function BroadcastModal({ open, onClose }) {
           {...register('roles')}
         />
         <div className="flex gap-3 pt-2">
-          <Button variant="secondary" className="flex-1" onClick={onClose} type="button">Cancel</Button>
-          <Button className="flex-1" type="submit" loading={mutation.isPending} leftIcon={<Radio size={14} />}>
+          <Button variant="secondary" className="flex-1" onClick={onClose} type="button">
+            Cancel
+          </Button>
+          <Button
+            className="flex-1"
+            type="submit"
+            loading={mutation.isPending}
+            leftIcon={<Radio size={14} />}
+          >
             Broadcast
           </Button>
         </div>
@@ -100,6 +192,7 @@ export default function Notifications() {
   const [page, setPage] = useState(1)
   const [isReadFilter, setIsReadFilter] = useState('')
   const [broadcastModal, setBroadcastModal] = useState(false)
+  const [sendModal, setSendModal] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
 
   const { data, isLoading } = useQuery({
@@ -158,7 +251,7 @@ export default function Notifications() {
             {data?.unreadCount > 0 ? `${data.unreadCount} unread` : 'All caught up'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {data?.unreadCount > 0 && (
             <Button
               variant="secondary"
@@ -171,13 +264,23 @@ export default function Notifications() {
             </Button>
           )}
           {admin && (
-            <Button
-              size="sm"
-              leftIcon={<Radio size={14} />}
-              onClick={() => setBroadcastModal(true)}
-            >
-              Broadcast
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                leftIcon={<Send size={14} />}
+                onClick={() => setSendModal(true)}
+              >
+                Send
+              </Button>
+              <Button
+                size="sm"
+                leftIcon={<Radio size={14} />}
+                onClick={() => setBroadcastModal(true)}
+              >
+                Broadcast
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -217,9 +320,7 @@ export default function Notifications() {
                 >
                   <div
                     className="w-2 h-2 rounded-full mt-2 shrink-0"
-                    style={{
-                      backgroundColor: notif.isRead ? '#CBD5E1' : '#2563EB',
-                    }}
+                    style={{ backgroundColor: notif.isRead ? '#CBD5E1' : '#2563EB' }}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -260,6 +361,7 @@ export default function Notifications() {
       </Card>
 
       <BroadcastModal open={broadcastModal} onClose={() => setBroadcastModal(false)} />
+      <SendNotificationModal open={sendModal} onClose={() => setSendModal(false)} />
 
       <ConfirmDialog
         open={!!deleteTarget}

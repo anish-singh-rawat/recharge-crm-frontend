@@ -1,25 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from 'recharts'
-import { Zap, DollarSign, TrendingUp, CheckCircle } from 'lucide-react'
+import { Zap, DollarSign, TrendingUp, CheckCircle, Users, Wallet } from 'lucide-react'
 import { reportsApi } from '@/api/reports'
 import { rechargeApi } from '@/api/recharge'
 import StatCard from '@/components/ui/StatCard'
 import Card, { CardHeader } from '@/components/ui/Card'
 import StatusBadge from '@/components/ui/StatusBadge'
 import { PageLoader } from '@/components/ui/LoadingSpinner'
-import { formatCurrency, formatDateTime } from '@/utils/format'
+import { formatCurrency, formatNumber, formatDateTime } from '@/utils/format'
 import useAuthStore from '@/store/authStore'
 import { STATUS_COLORS } from '@/utils/constants'
 import { useIsReady } from '@/hooks/useIsReady'
@@ -53,6 +44,7 @@ export default function Dashboard() {
     queryFn: () => reportsApi.getSalesByDay({}),
     select: (r) => {
       const d = r.data.data
+      if (Array.isArray(d?.report)) return d.report
       if (Array.isArray(d)) return d
       if (Array.isArray(d?.items)) return d.items
       return []
@@ -66,18 +58,13 @@ export default function Dashboard() {
   const allTime = dashData?.allTime || {}
   const statusBreakdown = dashData?.statusBreakdown || []
 
-  const pieData = statusBreakdown.map((s) => ({
-    name: s._id,
-    value: s.count,
-  }))
+  const pieData = statusBreakdown.map((s) => ({ name: s._id, value: s.count }))
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[#0F172A]">Dashboard</h1>
-        <p className="text-sm text-[#94A3B8] mt-0.5">
-          Welcome back, {user?.name?.split(' ')[0]}
-        </p>
+        <p className="text-sm text-[#94A3B8] mt-0.5">Welcome back, {user?.name?.split(' ')[0]}</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -96,9 +83,9 @@ export default function Dashboard() {
           iconColor="text-[#16A34A]"
         />
         <StatCard
-          title="All Time Transactions"
+          title="All Time Sales"
           value={formatCurrency(allTime.totalAmount)}
-          subtitle={`${allTime.totalTransactions ?? 0} transactions`}
+          subtitle={`${formatNumber(allTime.totalTransactions ?? 0)} txns`}
           icon={<TrendingUp size={20} />}
           iconBg="bg-[#EDE9FE]"
           iconColor="text-[#7C3AED]"
@@ -112,6 +99,39 @@ export default function Dashboard() {
           iconColor="text-[#16A34A]"
         />
       </div>
+
+      {admin && (dashData?.totalUsers || dashData?.totalRetailers) && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            title="Total Users"
+            value={formatNumber(dashData.totalUsers ?? 0)}
+            icon={<Users size={20} />}
+            iconBg="bg-[#DBEAFE]"
+            iconColor="text-[#2563EB]"
+          />
+          <StatCard
+            title="Total Retailers"
+            value={formatNumber(dashData.totalRetailers ?? 0)}
+            icon={<Users size={20} />}
+            iconBg="bg-[#EDE9FE]"
+            iconColor="text-[#7C3AED]"
+          />
+          <StatCard
+            title="Active Wallets"
+            value={formatNumber(dashData.activeWallets ?? 0)}
+            icon={<Wallet size={20} />}
+            iconBg="bg-[#DCFCE7]"
+            iconColor="text-[#16A34A]"
+          />
+          <StatCard
+            title="Total Wallet Balance"
+            value={formatCurrency(dashData.totalWalletBalance ?? 0)}
+            icon={<DollarSign size={20} />}
+            iconBg="bg-[#FEF3C7]"
+            iconColor="text-[#D97706]"
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {admin && salesByDay?.length > 0 && (
@@ -143,7 +163,7 @@ export default function Dashboard() {
                       border: '1px solid #E2E8F0',
                     }}
                   />
-                  <Bar dataKey="totalAmount" fill="#2563EB" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="amount" fill="#2563EB" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

@@ -115,7 +115,7 @@ export default function Logs() {
                         </td>
                         <td className="px-4 py-3"><Badge variant="primary">{log.module}</Badge></td>
                         <td className="px-4 py-3 text-[#475569]">{log.action}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-[#94A3B8]">{log.ip || '—'}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-[#94A3B8]">{log.ipAddress || log.ip || '—'}</td>
                         <td className="px-4 py-3 text-xs text-[#94A3B8] whitespace-nowrap">{formatDateTime(log.createdAt)}</td>
                       </tr>
                     ))}
@@ -162,10 +162,18 @@ export default function Logs() {
                     {auditData.items.map((log) => (
                       <tr key={log._id} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC]">
                         <td className="px-4 py-3">
-                          <p className="font-medium text-[#0F172A]">{log.user?.name || '—'}</p>
+                          <p className="font-medium text-[#0F172A]">
+                            {log.performedBy?.name || log.user?.name || '—'}
+                          </p>
+                          <p className="text-xs text-[#94A3B8]">{log.performedBy?.email || log.user?.email}</p>
                         </td>
                         <td className="px-4 py-3 text-[#475569]">{log.action}</td>
-                        <td className="px-4 py-3 text-[#475569]">{log.entityType} {log.entityId?.slice(-6)}</td>
+                        <td className="px-4 py-3 text-[#475569]">
+                          {log.targetModel || log.entityType || '—'}{' '}
+                          <span className="font-mono text-xs">
+                            {(log.target || log.entityId)?.toString().slice(-6)}
+                          </span>
+                        </td>
                         <td className="px-4 py-3">
                           <Badge variant={SEVERITY_VARIANTS[log.severity] || 'default'}>
                             {log.severity}
@@ -198,7 +206,7 @@ export default function Logs() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-                      {['Txn ID', 'Status', 'Processed', 'Date'].map((h) => (
+                      {['Txn ID', 'Provider', 'Processed', 'Processed At', 'Date'].map((h) => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[#94A3B8] uppercase tracking-wide whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -206,12 +214,17 @@ export default function Logs() {
                   <tbody>
                     {webhookData.items.map((log) => (
                       <tr key={log._id} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC]">
-                        <td className="px-4 py-3 font-mono text-xs text-[#475569]">{log.txnId?.slice(-10) || '—'}</td>
-                        <td className="px-4 py-3 text-[#475569]">{log.status || '—'}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-[#475569]">
+                          {log.payload?.txnId?.slice(-10) || log.txnId?.slice(-10) || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-[#475569]">{log.provider || '—'}</td>
                         <td className="px-4 py-3">
                           <Badge variant={log.isProcessed ? 'success' : 'warning'}>
                             {log.isProcessed ? 'Yes' : 'No'}
                           </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-[#94A3B8] whitespace-nowrap">
+                          {log.processedAt ? formatDateTime(log.processedAt) : '—'}
                         </td>
                         <td className="px-4 py-3 text-xs text-[#94A3B8] whitespace-nowrap">{formatDateTime(log.createdAt)}</td>
                       </tr>

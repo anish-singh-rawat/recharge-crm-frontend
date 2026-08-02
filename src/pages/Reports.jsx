@@ -58,6 +58,7 @@ export default function Reports() {
     queryFn: () => reportsApi.getSalesByDay(dateRange),
     select: (r) => {
       const d = r.data.data
+      if (Array.isArray(d?.report)) return d.report
       if (Array.isArray(d)) return d
       if (Array.isArray(d?.items)) return d.items
       return []
@@ -70,6 +71,7 @@ export default function Reports() {
     queryFn: () => reportsApi.getSalesByOperator(dateRange),
     select: (r) => {
       const d = r.data.data
+      if (Array.isArray(d?.report)) return d.report
       if (Array.isArray(d)) return d
       if (Array.isArray(d?.items)) return d.items
       return []
@@ -103,6 +105,7 @@ export default function Reports() {
     queryFn: () => reportsApi.getCommissionReport(dateRange),
     select: (r) => {
       const d = r.data.data
+      if (Array.isArray(d?.report)) return d.report
       if (Array.isArray(d)) return d
       if (Array.isArray(d?.items)) return d.items
       return []
@@ -256,11 +259,7 @@ export default function Reports() {
                     <CardHeader title="Sales by Operator" />
                     <ResponsiveContainer width="100%" height={220}>
                       <BarChart data={salesByOperator} layout="vertical">
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          stroke="#E2E8F0"
-                          horizontal={false}
-                        />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" horizontal={false} />
                         <XAxis
                           type="number"
                           tick={{ fontSize: 11, fill: '#94A3B8' }}
@@ -270,21 +269,17 @@ export default function Reports() {
                         />
                         <YAxis
                           type="category"
-                          dataKey="_id"
+                          dataKey="operatorName"
                           tick={{ fontSize: 11, fill: '#94A3B8' }}
                           tickLine={false}
                           axisLine={false}
-                          width={60}
+                          width={70}
                         />
                         <Tooltip
                           formatter={(v) => [formatCurrency(v), 'Amount']}
-                          contentStyle={{
-                            fontSize: 12,
-                            borderRadius: 8,
-                            border: '1px solid #E2E8F0',
-                          }}
+                          contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
                         />
-                        <Bar dataKey="totalAmount" radius={[0, 3, 3, 0]}>
+                        <Bar dataKey="amount" radius={[0, 3, 3, 0]}>
                           {salesByOperator.map((_, i) => (
                             <Cell key={i} fill={COLORS[i % COLORS.length]} />
                           ))}
@@ -481,15 +476,14 @@ export default function Reports() {
                     </thead>
                     <tbody>
                       {commissionReport.map((row, i) => (
-                        <tr
-                          key={row._id || i}
-                          className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC]"
-                        >
+                        <tr key={row._id || i} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC]">
                           <td className="px-4 py-3">
                             <p className="font-medium text-[#0F172A]">
-                              {row.user?.name || row.name || '—'}
+                              {row.retailer?.name || row.user?.name || row.name || '—'}
                             </p>
-                            <p className="text-xs text-[#94A3B8]">{row.user?.phone || row.phone}</p>
+                            <p className="text-xs text-[#94A3B8]">
+                              {row.retailer?.phone || row.user?.phone || row.phone}
+                            </p>
                           </td>
                           <td className="px-4 py-3 font-mono">{row.totalTransactions ?? '—'}</td>
                           <td className="px-4 py-3 font-mono font-medium text-[#0F172A]">

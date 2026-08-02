@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
@@ -7,6 +7,7 @@ import axios from 'axios'
 import useAuthStore from '@/store/authStore'
 import { authApi } from '@/api/auth'
 import { settingsApi } from '@/api/settings'
+import { healthApi } from '@/api/health'
 import { setAccessToken } from '@/lib/axios'
 
 import Layout from '@/components/layout/Layout'
@@ -47,15 +48,34 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
 
 function AppInitializer({ children }) {
   const { login, logout, isAuthenticated, isInitialized, setTokenReady } = useAuthStore()
+  const [maintenance, setMaintenance] = useState(false)
 
   useEffect(() => {
     const handleAuthLogout = () => logout()
+    const handleMaintenance = () => setMaintenance(true)
     window.addEventListener('auth:logout', handleAuthLogout)
-    return () => window.removeEventListener('auth:logout', handleAuthLogout)
+    window.addEventListener('app:maintenance', handleMaintenance)
+    return () => {
+      window.removeEventListener('auth:logout', handleAuthLogout)
+      window.removeEventListener('app:maintenance', handleMaintenance)
+    }
   }, [logout])
 
   useEffect(() => {
     const init = async () => {
+      try {
+        const healthRes = await healthApi.health()
+        if (healthRes.data?.data?.status === 'DOWN' || healthRes.data?.data?.database?.status === 'DISCONNECTED') {
+          setMaintenance(true)
+          return
+        }
+      } catch (healthErr) {
+        if (healthErr?.response?.status === 503) {
+          setMaintenance(true)
+          return
+        }
+      }
+
       const refreshToken = localStorage.getItem('refreshToken')
 
       if (!refreshToken) {
@@ -115,6 +135,8 @@ function AppInitializer({ children }) {
     )
   }
 
+  if (maintenance) return <Maintenance />
+
   return children
 }
 
@@ -123,10 +145,14 @@ function MaintenanceGate({ children }) {
     queryKey: ['settings', 'public'],
     queryFn: () => settingsApi.getPublicSettings(),
     select: (r) => {
-      const items = r.data.data?.items || r.data.data || []
-      if (Array.isArray(items)) {
-        const setting = items.find((s) => s.key === 'app.maintenanceMode')
-        return setting?.value === true || setting?.value === 'true'
+      const d = r.data.data
+      const settings = d?.settings || d || {}
+      if (typeof settings === 'object' && !Array.isArray(settings)) {
+        return settings['app.maintenanceMode'] === true || settings['app.maintenanceMode'] === 'true'
+      }
+      if (Array.isArray(settings)) {
+        const s = settings.find((x) => x.key === 'app.maintenanceMode')
+        return s?.value === true || s?.value === 'true'
       }
       return false
     },

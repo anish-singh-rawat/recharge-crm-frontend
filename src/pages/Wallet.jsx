@@ -17,7 +17,7 @@ export default function Wallet() {
   const { data: wallet, isLoading: walletLoading } = useQuery({
     queryKey: ['wallet', 'me'],
     queryFn: () => walletApi.getMyWallet(),
-    select: (r) => r.data.data,
+    select: (r) => r.data.data?.wallet || r.data.data,
     enabled: ready,
   })
 
@@ -64,7 +64,7 @@ export default function Wallet() {
             <div>
               <p className="text-xs text-[#94A3B8]">Total Credit</p>
               <p className="text-xl font-bold font-mono text-[#0F172A]">
-                {formatCurrency(wallet?.totalCredit || 0)}
+                {formatCurrency(wallet?.totalCredited || wallet?.totalCredit || 0)}
               </p>
             </div>
           </div>
@@ -78,7 +78,7 @@ export default function Wallet() {
             <div>
               <p className="text-xs text-[#94A3B8]">Total Debit</p>
               <p className="text-xl font-bold font-mono text-[#0F172A]">
-                {formatCurrency(wallet?.totalDebit || 0)}
+                {formatCurrency(wallet?.totalDebited || wallet?.totalDebit || 0)}
               </p>
             </div>
           </div>

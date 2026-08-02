@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Save } from 'lucide-react'
+import { Save, CheckCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { settingsApi } from '@/api/settings'
 import Card, { CardHeader } from '@/components/ui/Card'
@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button'
 import { PageLoader } from '@/components/ui/LoadingSpinner'
 import { extractError } from '@/utils/format'
 import { useIsReady } from '@/hooks/useIsReady'
+import useAuthStore from '@/store/authStore'
 
 const SETTING_GROUPS = [
   {
@@ -27,6 +28,7 @@ const SETTING_GROUPS = [
 
 export default function Settings() {
   const queryClient = useQueryClient()
+  const { isSuperAdmin } = useAuthStore()
   const [values, setValues] = useState({})
   const [saving, setSaving] = useState({})
   const ready = useIsReady()
@@ -35,7 +37,8 @@ export default function Settings() {
     queryKey: ['settings', 'all'],
     queryFn: () => settingsApi.getAllSettings({ limit: 50 }),
     select: (r) => {
-      const items = r.data.data?.items || []
+      const d = r.data.data
+      const items = d?.items || (Array.isArray(d) ? d : [])
       const map = {}
       items.forEach((s) => { map[s.key] = s.value })
       return map
@@ -60,6 +63,18 @@ export default function Settings() {
     },
   })
 
+  const bulkUpdateMutation = useMutation({
+    mutationFn: () =>
+      settingsApi.bulkUpdateSettings(
+        Object.entries(values).map(([key, value]) => ({ key, value }))
+      ),
+    onSuccess: () => {
+      toast.success('All settings saved')
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
   const handleSave = (key) => {
     setSaving((s) => ({ ...s, [key]: true }))
     updateMutation.mutate({ key, value: values[key] ?? settings?.[key] })
@@ -75,6 +90,18 @@ export default function Settings() {
         <h1 className="text-2xl font-bold text-[#0F172A]">Settings</h1>
         <p className="text-sm text-[#94A3B8] mt-0.5">Configure application settings</p>
       </div>
+
+      {isSuperAdmin() && Object.keys(values).length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            leftIcon={<CheckCheck size={15} />}
+            onClick={() => bulkUpdateMutation.mutate()}
+            loading={bulkUpdateMutation.isPending}
+          >
+            Save All
+          </Button>
+        </div>
+      )}
 
       {SETTING_GROUPS.map((group) => (
         <Card key={group.label}>

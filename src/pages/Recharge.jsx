@@ -3,23 +3,23 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Zap } from 'lucide-react'
+import { Zap, Loader } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { rechargeApi } from '@/api/recharge'
 import { operatorsApi } from '@/api/operators'
 import { walletApi } from '@/api/wallet'
+import { providerApi } from '@/api/provider'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Card, { CardHeader } from '@/components/ui/Card'
 import StatusBadge from '@/components/ui/StatusBadge'
-import { PageLoader, TableSkeleton } from '@/components/ui/LoadingSpinner'
+import { TableSkeleton } from '@/components/ui/LoadingSpinner'
 import Pagination from '@/components/ui/Pagination'
 import EmptyState from '@/components/ui/EmptyState'
 import { formatCurrency, formatDateTime, extractError } from '@/utils/format'
 import { RECHARGE_TYPES } from '@/utils/constants'
 import { useSocket } from '@/hooks/useSocket'
-
 import { useIsReady } from '@/hooks/useIsReady'
 
 const schema = z.object({
@@ -39,8 +39,10 @@ export default function Recharge() {
   const ready = useIsReady()
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState('')
+  const [mobileFilter, setMobileFilter] = useState('')
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [lastTxn, setLastTxn] = useState(null)
+  const [detectingOperator, setDetectingOperator] = useState(false)
 
   const {
     register,
@@ -61,7 +63,7 @@ export default function Recharge() {
   const { data: wallet } = useQuery({
     queryKey: ['wallet', 'me'],
     queryFn: () => walletApi.getMyWallet(),
-    select: (r) => r.data.data,
+    select: (r) => r.data.data?.wallet || r.data.data,
     enabled: ready,
   })
 
@@ -70,6 +72,7 @@ export default function Recharge() {
     queryFn: () => operatorsApi.getActiveOperators(rechargeType),
     select: (r) => {
       const d = r.data.data
+      if (Array.isArray(d?.operators)) return d.operators
       if (Array.isArray(d)) return d
       if (Array.isArray(d?.items)) return d.items
       return []
@@ -102,12 +105,13 @@ export default function Recharge() {
   })
 
   const { data: txnsData, isLoading: txnsLoading } = useQuery({
-    queryKey: ['recharge', 'my', { page, status: statusFilter }],
+    queryKey: ['recharge', 'my', { page, status: statusFilter, mobileNumber: mobileFilter }],
     queryFn: () =>
       rechargeApi.getMyTransactions({
         page,
         limit: 10,
         ...(statusFilter && { status: statusFilter }),
+        ...(mobileFilter.length === 10 && { mobileNumber: mobileFilter }),
       }),
     select: (r) => r.data.data,
     enabled: ready,
@@ -164,6 +168,31 @@ export default function Recharge() {
   const operatorOptions = operators.map((o) => ({ value: o._id, label: o.name }))
   const circleOptions = circles.map((c) => ({ value: c._id, label: c.name }))
 
+  const handleMobileBlur = async (e) => {
+    const mobile = e.target.value
+    if (!/^[6-9]\d{9}$/.test(mobile)) return
+    setDetectingOperator(true)
+    try {
+      const res = await providerApi.detectOperator(mobile)
+      const detected = res.data.data
+      if (detected?.operatorCode) {
+        const matched = operators.find(
+          (o) => o.code === detected.operatorCode || o.name?.toLowerCase() === detected.operator?.toLowerCase()
+        )
+        if (matched) setValue('operatorId', matched._id)
+      }
+      if (detected?.circleCode) {
+        const matchedCircle = circles.find(
+          (c) => c.code === detected.circleCode || c.name?.toLowerCase() === detected.circle?.toLowerCase()
+        )
+        if (matchedCircle) setValue('circleId', matchedCircle._id)
+      }
+    } catch {
+    } finally {
+      setDetectingOperator(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -208,7 +237,9 @@ export default function Recharge() {
                 placeholder="9876543210"
                 error={errors.mobileNumber?.message}
                 required
+                rightElement={detectingOperator ? <Loader size={14} className="animate-spin text-[#94A3B8]" /> : null}
                 {...register('mobileNumber')}
+                onBlur={handleMobileBlur}
               />
               <Select
                 label="Operator"
@@ -302,16 +333,24 @@ export default function Recharge() {
           <Card padding={false}>
             <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
               <h2 className="text-base font-semibold text-[#0F172A]">My Transactions</h2>
-              <select
-                value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
-                className="text-sm border border-[#E2E8F0] rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-              >
-                <option value="">All Status</option>
-                {['SUCCESS', 'FAILED', 'PENDING', 'PROCESSING', 'INITIATED', 'REFUNDED', 'TIMEOUT'].map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  placeholder="Filter by mobile..."
+                  value={mobileFilter}
+                  onChange={(e) => { setMobileFilter(e.target.value.replace(/\D/g, '').slice(0, 10)); setPage(1) }}
+                  className="w-32 px-3 py-1.5 text-sm border border-[#E2E8F0] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
+                  className="text-sm border border-[#E2E8F0] rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                >
+                  <option value="">All Status</option>
+                  {['SUCCESS', 'FAILED', 'PENDING', 'PROCESSING', 'INITIATED', 'REFUNDED', 'TIMEOUT'].map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {txnsLoading ? (

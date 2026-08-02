@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, CornerDownLeft } from 'lucide-react'
+import { RefreshCw, CornerDownLeft, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { rechargeApi } from '@/api/recharge'
 import Card, { CardHeader } from '@/components/ui/Card'
@@ -13,25 +13,34 @@ import Pagination from '@/components/ui/Pagination'
 import EmptyState from '@/components/ui/EmptyState'
 import { formatCurrency, formatDateTime, extractError } from '@/utils/format'
 import { useIsReady } from '@/hooks/useIsReady'
+import { useSocket } from '@/hooks/useSocket'
 
 export default function AdminRecharge() {
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState('')
+  const [mobileFilter, setMobileFilter] = useState('')
   const [refundModal, setRefundModal] = useState(null)
   const [refundReason, setRefundReason] = useState('')
   const ready = useIsReady()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['recharge', 'all', { page, status: statusFilter }],
+    queryKey: ['recharge', 'all', { page, status: statusFilter, mobileNumber: mobileFilter }],
     queryFn: () =>
       rechargeApi.getAllTransactions({
         page,
         limit: 20,
         ...(statusFilter && { status: statusFilter }),
+        ...(mobileFilter.length === 10 && { mobileNumber: mobileFilter }),
       }),
     select: (r) => r.data.data,
     enabled: ready,
+  })
+
+  useSocket({
+    'recharge:update:all': () => {
+      queryClient.invalidateQueries({ queryKey: ['recharge', 'all'] })
+    },
   })
 
   const retryMutation = useMutation({
@@ -64,7 +73,16 @@ export default function AdminRecharge() {
       <Card padding={false}>
         <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
           <CardHeader title="Transactions" />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
+              <input
+                placeholder="Mobile number..."
+                value={mobileFilter}
+                onChange={(e) => { setMobileFilter(e.target.value.replace(/\D/g, '').slice(0, 10)); setPage(1) }}
+                className="pl-8 pr-3 py-1.5 text-sm border border-[#E2E8F0] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] w-36"
+              />
+            </div>
             <select
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
@@ -88,7 +106,7 @@ export default function AdminRecharge() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-                    {['Txn ID', 'Retailer', 'Mobile', 'Operator', 'Amount', 'Status', 'Date', 'Actions'].map((h) => (
+                    {['Txn ID', 'Retailer', 'Mobile', 'Operator', 'Amount', 'Commission', 'Status', 'Date', 'Actions'].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-3 text-left text-xs font-medium text-[#94A3B8] uppercase tracking-wide whitespace-nowrap"
@@ -118,6 +136,9 @@ export default function AdminRecharge() {
                       <td className="px-4 py-3 font-mono font-medium">
                         {formatCurrency(txn.amount)}
                       </td>
+                      <td className="px-4 py-3 font-mono text-xs text-[#7C3AED]">
+                        {txn.commission ? formatCurrency(txn.commission) : '—'}
+                      </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={txn.status} />
                       </td>
@@ -126,7 +147,7 @@ export default function AdminRecharge() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          {txn.status === 'FAILED' && (
+                          {(txn.status === 'FAILED' || txn.status === 'TIMEOUT') && (
                             <button
                               onClick={() => retryMutation.mutate(txn._id)}
                               className="p-1.5 rounded hover:bg-[#DBEAFE] text-[#2563EB] transition-colors"
