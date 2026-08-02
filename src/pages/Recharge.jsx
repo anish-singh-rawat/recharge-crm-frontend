@@ -20,6 +20,8 @@ import { formatCurrency, formatDateTime, extractError } from '@/utils/format'
 import { RECHARGE_TYPES } from '@/utils/constants'
 import { useSocket } from '@/hooks/useSocket'
 
+import { useIsReady } from '@/hooks/useIsReady'
+
 const schema = z.object({
   mobileNumber: z
     .string()
@@ -34,6 +36,7 @@ const schema = z.object({
 
 export default function Recharge() {
   const queryClient = useQueryClient()
+  const ready = useIsReady()
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedPlan, setSelectedPlan] = useState(null)
@@ -59,26 +62,28 @@ export default function Recharge() {
     queryKey: ['wallet', 'me'],
     queryFn: () => walletApi.getMyWallet(),
     select: (r) => r.data.data,
+    enabled: ready,
   })
 
   const { data: operators = [] } = useQuery({
     queryKey: ['operators', 'active', rechargeType],
     queryFn: () => operatorsApi.getActiveOperators(rechargeType),
     select: (r) => r.data.data || [],
-    enabled: !!rechargeType,
+    enabled: ready && !!rechargeType,
   })
 
   const { data: circles = [] } = useQuery({
     queryKey: ['circles', 'all'],
     queryFn: () => operatorsApi.getCircles(),
     select: (r) => r.data.data || [],
+    enabled: ready,
   })
 
   const { data: plans = [] } = useQuery({
     queryKey: ['plans', operatorId, circleId],
     queryFn: () => operatorsApi.getPlansByOperator(operatorId, circleId),
     select: (r) => r.data.data || [],
-    enabled: !!operatorId && !!circleId,
+    enabled: ready && !!operatorId && !!circleId,
   })
 
   const { data: txnsData, isLoading: txnsLoading } = useQuery({
@@ -90,6 +95,7 @@ export default function Recharge() {
         ...(statusFilter && { status: statusFilter }),
       }),
     select: (r) => r.data.data,
+    enabled: ready,
   })
 
   useSocket({

@@ -14,6 +14,7 @@ import { PageLoader } from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import { formatDateTime, extractError } from '@/utils/format'
 import { PERMISSIONS } from '@/utils/constants'
+import { useIsReady } from '@/hooks/useIsReady'
 
 function CreateKeyModal({ open, onClose, onCreated }) {
   const { register, handleSubmit, control, reset, formState: { errors } } = useForm({
@@ -119,11 +120,13 @@ export default function ApiKeys() {
   const [createModal, setCreateModal] = useState(false)
   const [rawKey, setRawKey] = useState(null)
   const [revokeTarget, setRevokeTarget] = useState(null)
+  const ready = useIsReady()
 
   const { data: keys, isLoading } = useQuery({
     queryKey: ['api-keys'],
     queryFn: () => apiKeysApi.getApiKeys(),
     select: (r) => r.data.data || [],
+    enabled: ready,
   })
 
   const revokeMutation = useMutation({

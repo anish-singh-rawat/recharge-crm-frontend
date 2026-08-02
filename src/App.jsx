@@ -2,11 +2,12 @@ import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
+import axios from 'axios'
 
 import useAuthStore from '@/store/authStore'
 import { authApi } from '@/api/auth'
 import { settingsApi } from '@/api/settings'
-import api, { setAccessToken } from '@/lib/axios'
+import { setAccessToken } from '@/lib/axios'
 
 import Layout from '@/components/layout/Layout'
 import { ProtectedRoute, AdminRoute, GuestRoute } from '@/components/auth/ProtectedRoute'
@@ -42,8 +43,10 @@ const queryClient = new QueryClient({
   },
 })
 
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
+
 function AppInitializer({ children }) {
-  const { login, logout, setInitialized, isInitialized } = useAuthStore()
+  const { login, logout, setInitialized, isInitialized, isAuthenticated } = useAuthStore()
 
   useEffect(() => {
     const handleAuthLogout = () => logout()
@@ -54,36 +57,54 @@ function AppInitializer({ children }) {
   useEffect(() => {
     const init = async () => {
       const refreshToken = localStorage.getItem('refreshToken')
+
       if (!refreshToken) {
-        setInitialized(true)
+        logout()
         return
       }
+
       try {
-        const res = await api.post('/auth/refresh-token', { refreshToken })
-        const { accessToken, refreshToken: newRT } = res.data.data || {}
-        if (accessToken) {
-          setAccessToken(accessToken)
-          if (newRT) localStorage.setItem('refreshToken', newRT)
-          const profileRes = await authApi.getProfile()
-          login({
-            user: profileRes.data.data,
-            accessToken,
-            refreshToken: newRT || refreshToken,
-          })
-        } else {
+        const res = await axios.post(
+          `${BASE_URL}/auth/refresh-token`,
+          { refreshToken },
+          { withCredentials: true }
+        )
+
+        const data = res.data?.data || res.data || {}
+        const accessToken = data.accessToken
+        const newRT = data.refreshToken
+
+        if (!accessToken) {
           logout()
+          return
         }
+
+        setAccessToken(accessToken)
+        if (newRT) localStorage.setItem('refreshToken', newRT)
+
+        const profileRes = await authApi.getProfile()
+        const freshUser = profileRes.data?.data || profileRes.data
+
+        login({
+          user: freshUser,
+          accessToken,
+          refreshToken: newRT || refreshToken,
+        })
       } catch {
         logout()
       }
     }
+
     init()
   }, [])
 
-  if (!isInitialized) {
+  if (!isInitialized && !isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="w-10 h-10 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+        <div className="flex flex-col items-center gap-3">
+          <span className="w-10 h-10 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
+          <p className="text-sm text-[#94A3B8]">Loading...</p>
+        </div>
       </div>
     )
   }

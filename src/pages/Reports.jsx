@@ -21,6 +21,7 @@ import Pagination from '@/components/ui/Pagination'
 import EmptyState from '@/components/ui/EmptyState'
 import { formatCurrency, formatNumber, formatDateTime } from '@/utils/format'
 import useAuthStore from '@/store/authStore'
+import { useIsReady } from '@/hooks/useIsReady'
 
 const COLORS = ['#2563EB', '#16A34A', '#D97706', '#DC2626', '#0891B2', '#7C3AED']
 
@@ -34,6 +35,7 @@ const ADMIN_TABS = [
 export default function Reports() {
   const { isAdmin } = useAuthStore()
   const admin = isAdmin()
+  const ready = useIsReady()
   const [tab, setTab] = useState('overview')
   const [rechargePage, setRechargePage] = useState(1)
   const [walletPage, setWalletPage] = useState(1)
@@ -48,21 +50,21 @@ export default function Reports() {
     queryKey: ['reports', 'sales', dateRange],
     queryFn: () => reportsApi.getSalesReport(dateRange),
     select: (r) => r.data.data,
-    enabled: admin,
+    enabled: ready && admin,
   })
 
   const { data: salesByDay } = useQuery({
     queryKey: ['reports', 'sales-by-day', dateRange],
     queryFn: () => reportsApi.getSalesByDay(dateRange),
     select: (r) => r.data.data || [],
-    enabled: admin && tab === 'overview',
+    enabled: ready && admin && tab === 'overview',
   })
 
   const { data: salesByOperator } = useQuery({
     queryKey: ['reports', 'sales-by-operator', dateRange],
     queryFn: () => reportsApi.getSalesByOperator(dateRange),
     select: (r) => r.data.data || [],
-    enabled: admin && tab === 'overview',
+    enabled: ready && admin && tab === 'overview',
   })
 
   const { data: rechargeReport, isLoading: rechargeLoading } = useQuery({
@@ -75,7 +77,7 @@ export default function Reports() {
         ...(statusFilter && { status: statusFilter }),
       }),
     select: (r) => r.data.data,
-    enabled: admin && tab === 'recharge',
+    enabled: ready && admin && tab === 'recharge',
   })
 
   const { data: walletReport, isLoading: walletLoading } = useQuery({
@@ -83,28 +85,28 @@ export default function Reports() {
     queryFn: () =>
       reportsApi.getWalletReport({ page: walletPage, limit: 20, ...dateRange }),
     select: (r) => r.data.data,
-    enabled: admin && tab === 'wallet',
+    enabled: ready && admin && tab === 'wallet',
   })
 
   const { data: commissionReport, isLoading: commissionLoading } = useQuery({
     queryKey: ['reports', 'commission', dateRange],
     queryFn: () => reportsApi.getCommissionReport(dateRange),
     select: (r) => r.data.data || [],
-    enabled: admin && tab === 'commission',
+    enabled: ready && admin && tab === 'commission',
   })
 
   const { data: myRechargeReport } = useQuery({
     queryKey: ['reports', 'recharge-my', dateRange],
     queryFn: () => reportsApi.getMyRechargeReport(dateRange),
     select: (r) => r.data.data,
-    enabled: !admin,
+    enabled: ready && !admin,
   })
 
   const { data: myWalletReport } = useQuery({
     queryKey: ['reports', 'wallet-my', dateRange],
     queryFn: () => reportsApi.getMyWalletReport(dateRange),
     select: (r) => r.data.data,
-    enabled: !admin,
+    enabled: ready && !admin,
   })
 
   if (admin && salesLoading) return <PageLoader />

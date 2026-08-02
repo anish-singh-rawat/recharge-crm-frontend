@@ -5,7 +5,7 @@ import { PageLoader } from '@/components/ui/LoadingSpinner'
 export function ProtectedRoute() {
   const { isAuthenticated, isInitialized } = useAuthStore()
 
-  if (!isInitialized) return <PageLoader />
+  if (!isAuthenticated && !isInitialized) return <PageLoader />
   if (!isAuthenticated) return <Navigate to="/login" replace />
 
   return <Outlet />
@@ -14,7 +14,7 @@ export function ProtectedRoute() {
 export function AdminRoute() {
   const { isAuthenticated, isInitialized, isAdmin } = useAuthStore()
 
-  if (!isInitialized) return <PageLoader />
+  if (!isAuthenticated && !isInitialized) return <PageLoader />
   if (!isAuthenticated) return <Navigate to="/login" replace />
   if (!isAdmin()) return <Navigate to="/dashboard" replace />
 
@@ -22,7 +22,10 @@ export function AdminRoute() {
 }
 
 export function GuestRoute() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, isInitialized } = useAuthStore()
+
+  if (!isInitialized && !isAuthenticated) return null
+
   if (isAuthenticated) return <Navigate to="/dashboard" replace />
   return <Outlet />
 }

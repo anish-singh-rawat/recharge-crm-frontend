@@ -22,17 +22,20 @@ import { PageLoader } from '@/components/ui/LoadingSpinner'
 import { formatCurrency, formatDateTime } from '@/utils/format'
 import useAuthStore from '@/store/authStore'
 import { STATUS_COLORS } from '@/utils/constants'
+import { useIsReady } from '@/hooks/useIsReady'
 
 const PIE_COLORS = ['#16A34A', '#DC2626', '#D97706', '#2563EB', '#0891B2', '#7C3AED']
 
 export default function Dashboard() {
   const { isAdmin, user } = useAuthStore()
   const admin = isAdmin()
+  const ready = useIsReady()
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['reports', 'dashboard'],
     queryFn: () => reportsApi.getDashboard(),
     select: (r) => r.data.data,
+    enabled: ready,
   })
 
   const { data: recentTxns } = useQuery({
@@ -42,13 +45,14 @@ export default function Dashboard() {
         ? rechargeApi.getAllTransactions({ page: 1, limit: 5 })
         : rechargeApi.getMyTransactions({ page: 1, limit: 5 }),
     select: (r) => r.data.data?.items || [],
+    enabled: ready,
   })
 
   const { data: salesByDay } = useQuery({
     queryKey: ['reports', 'sales-by-day'],
     queryFn: () => reportsApi.getSalesByDay({}),
     select: (r) => r.data.data || [],
-    enabled: admin,
+    enabled: ready && admin,
   })
 
   if (isLoading) return <PageLoader />

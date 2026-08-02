@@ -48,38 +48,43 @@ const pwSchema = z
 
 export default function Profile() {
   const queryClient = useQueryClient()
-  const { user, updateUser, logout } = useAuthStore()
+  const { user, updateUser, logout, isAuthenticated } = useAuthStore()
   const fileRef = useRef()
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
 
-  const { data: profile, isLoading } = useQuery({
+  const { data: profile } = useQuery({
     queryKey: ['profile'],
     queryFn: () => authApi.getProfile(),
     select: (r) => r.data.data,
+    enabled: isAuthenticated,
   })
 
   const { data: sessions } = useQuery({
     queryKey: ['sessions'],
     queryFn: () => authApi.getSessions(),
     select: (r) => r.data.data || [],
+    enabled: isAuthenticated,
   })
 
   const { data: loginHistory } = useQuery({
     queryKey: ['login-history'],
     queryFn: () => authApi.getLoginHistory(),
     select: (r) => r.data.data || [],
+    enabled: isAuthenticated,
   })
+
+  const displayUser = profile || user
 
   const profileForm = useForm({
     resolver: zodResolver(profileSchema),
-    values: profile
+    values: displayUser
       ? {
-          name: profile.name || '',
-          businessName: profile.businessName || '',
-          gstNumber: profile.gstNumber || '',
-          panNumber: profile.panNumber || '',
-          address: profile.address || {},
+          name: displayUser.name || '',
+          businessName: displayUser.businessName || '',
+          gstNumber: displayUser.gstNumber || '',
+          panNumber: displayUser.panNumber || '',
+          address: displayUser.address || {},
         }
       : {},
   })
@@ -128,7 +133,7 @@ export default function Profile() {
     onError: (err) => toast.error(extractError(err)),
   })
 
-  if (isLoading) return <PageLoader />
+  if (!displayUser) return <PageLoader />
 
   return (
     <div className="space-y-6">
@@ -143,14 +148,14 @@ export default function Profile() {
             <div className="flex flex-col items-center gap-3 text-center">
               <div className="relative">
                 <div className="w-20 h-20 rounded-full bg-[#2563EB] flex items-center justify-center text-white text-2xl font-bold overflow-hidden">
-                  {profile?.avatar ? (
+                  {displayUser?.avatar ? (
                     <img
-                      src={profile.avatar}
-                      alt={profile.name}
+                      src={displayUser.avatar}
+                      alt={displayUser.name}
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    getInitials(profile?.name)
+                    getInitials(displayUser?.name)
                   )}
                 </div>
                 <button
@@ -171,20 +176,20 @@ export default function Profile() {
                 />
               </div>
               <div>
-                <p className="text-base font-semibold text-[#0F172A]">{profile?.name}</p>
-                <p className="text-sm text-[#94A3B8]">{profile?.email}</p>
+                <p className="text-base font-semibold text-[#0F172A]">{displayUser?.name}</p>
+                <p className="text-sm text-[#94A3B8]">{displayUser?.email}</p>
                 <Badge variant="primary" className="mt-1 capitalize">
-                  {profile?.role?.replace('_', ' ')}
+                  {displayUser?.role?.replace('_', ' ')}
                 </Badge>
               </div>
             </div>
             <div className="mt-4 pt-4 border-t border-[#E2E8F0] space-y-2 text-sm">
               {[
-                ['Phone', profile?.phone],
-                ['Business', profile?.businessName || '—'],
-                ['GST', profile?.gstNumber || '—'],
-                ['PAN', profile?.panNumber || '—'],
-                ['Member since', formatDateTime(profile?.createdAt)],
+                ['Phone', displayUser?.phone],
+                ['Business', displayUser?.businessName || '—'],
+                ['GST', displayUser?.gstNumber || '—'],
+                ['PAN', displayUser?.panNumber || '—'],
+                ['Member since', formatDateTime(displayUser?.createdAt)],
               ].map(([l, v]) => (
                 <div key={l} className="flex justify-between gap-2">
                   <span className="text-[#94A3B8] shrink-0">{l}</span>

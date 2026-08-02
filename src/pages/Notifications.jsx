@@ -20,6 +20,7 @@ import { formatTimeAgo, extractError } from '@/utils/format'
 import { NOTIFICATION_TYPES } from '@/utils/constants'
 import useAuthStore from '@/store/authStore'
 import clsx from 'clsx'
+import { useIsReady } from '@/hooks/useIsReady'
 
 const broadcastSchema = z.object({
   title: z.string().min(1, 'Title required'),
@@ -95,6 +96,7 @@ export default function Notifications() {
   const queryClient = useQueryClient()
   const { isAdmin } = useAuthStore()
   const admin = isAdmin()
+  const ready = useIsReady()
   const [page, setPage] = useState(1)
   const [isReadFilter, setIsReadFilter] = useState('')
   const [broadcastModal, setBroadcastModal] = useState(false)
@@ -109,6 +111,7 @@ export default function Notifications() {
         ...(isReadFilter !== '' && { isRead: isReadFilter }),
       }),
     select: (r) => r.data.data,
+    enabled: ready,
   })
 
   const markAllMutation = useMutation({

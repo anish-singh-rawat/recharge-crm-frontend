@@ -15,13 +15,15 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const queryClient = useQueryClient()
-  const { updateUser } = useAuthStore()
+  const { updateUser, isInitialized } = useAuthStore()
+
 
   const { data: notifData } = useQuery({
     queryKey: ['notifications', 'my', { page: 1, limit: 1 }],
     queryFn: () => notificationsApi.getMyNotifications({ page: 1, limit: 1 }),
     select: (r) => r.data.data,
     refetchInterval: 60000,
+    enabled: isInitialized,
   })
 
   const unreadCount = notifData?.unreadCount || 0

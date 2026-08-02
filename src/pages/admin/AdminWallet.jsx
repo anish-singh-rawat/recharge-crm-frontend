@@ -22,6 +22,7 @@ import { TableSkeleton } from '@/components/ui/LoadingSpinner'
 import Pagination from '@/components/ui/Pagination'
 import EmptyState from '@/components/ui/EmptyState'
 import { formatCurrency, formatDateTime, extractError, getInitials } from '@/utils/format'
+import { useIsReady } from '@/hooks/useIsReady'
 
 const creditSchema = z.object({
   amount: z.string().refine((v) => Number(v) > 0, 'Enter valid amount'),
@@ -108,18 +109,20 @@ export default function AdminWallet() {
   const [freezeModal, setFreezeModal] = useState(null)
   const [freezeReason, setFreezeReason] = useState('')
   const [userWalletModal, setUserWalletModal] = useState(null)
+  const ready = useIsReady()
 
   const { data: ledger, isLoading } = useQuery({
     queryKey: ['wallet', 'ledger', { page }],
     queryFn: () => walletApi.getLedger({ page, limit: 20 }),
     select: (r) => r.data.data,
+    enabled: ready,
   })
 
   const { data: searchedUsers } = useQuery({
     queryKey: ['users', 'wallet-search', search],
     queryFn: () => usersApi.getUsers({ search, limit: 10, role: 'retailer' }),
     select: (r) => r.data.data?.items || [],
-    enabled: search.length >= 2,
+    enabled: ready && search.length >= 2,
   })
 
   const { data: userWallet } = useQuery({

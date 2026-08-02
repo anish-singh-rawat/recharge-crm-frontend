@@ -19,6 +19,7 @@ import EmptyState from '@/components/ui/EmptyState'
 import { formatDateTime, extractError, getInitials } from '@/utils/format'
 import { USER_ROLES } from '@/utils/constants'
 import useAuthStore from '@/store/authStore'
+import { useIsReady } from '@/hooks/useIsReady'
 
 const createSchema = z
   .object({
@@ -203,6 +204,7 @@ function EditUserModal({ open, onClose, user }) {
 export default function Users() {
   const queryClient = useQueryClient()
   const { isSuperAdmin } = useAuthStore()
+  const ready = useIsReady()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
@@ -223,6 +225,7 @@ export default function Users() {
         ...(roleFilter && { role: roleFilter }),
       }),
     select: (r) => r.data.data,
+    enabled: ready,
   })
 
   const blockMutation = useMutation({

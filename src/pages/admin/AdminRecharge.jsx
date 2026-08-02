@@ -12,6 +12,7 @@ import { TableSkeleton } from '@/components/ui/LoadingSpinner'
 import Pagination from '@/components/ui/Pagination'
 import EmptyState from '@/components/ui/EmptyState'
 import { formatCurrency, formatDateTime, extractError } from '@/utils/format'
+import { useIsReady } from '@/hooks/useIsReady'
 
 export default function AdminRecharge() {
   const queryClient = useQueryClient()
@@ -19,6 +20,7 @@ export default function AdminRecharge() {
   const [statusFilter, setStatusFilter] = useState('')
   const [refundModal, setRefundModal] = useState(null)
   const [refundReason, setRefundReason] = useState('')
+  const ready = useIsReady()
 
   const { data, isLoading } = useQuery({
     queryKey: ['recharge', 'all', { page, status: statusFilter }],
@@ -29,6 +31,7 @@ export default function AdminRecharge() {
         ...(statusFilter && { status: statusFilter }),
       }),
     select: (r) => r.data.data,
+    enabled: ready,
   })
 
   const retryMutation = useMutation({

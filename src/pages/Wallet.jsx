@@ -4,27 +4,29 @@ import { Wallet as WalletIcon, ArrowUpCircle, ArrowDownCircle } from 'lucide-rea
 import { walletApi } from '@/api/wallet'
 import Card, { CardHeader } from '@/components/ui/Card'
 import StatusBadge from '@/components/ui/StatusBadge'
-import { PageLoader, TableSkeleton } from '@/components/ui/LoadingSpinner'
+import { TableSkeleton } from '@/components/ui/LoadingSpinner'
 import Pagination from '@/components/ui/Pagination'
 import EmptyState from '@/components/ui/EmptyState'
 import { formatCurrency, formatDateTime } from '@/utils/format'
+import { useIsReady } from '@/hooks/useIsReady'
 
 export default function Wallet() {
   const [page, setPage] = useState(1)
+  const ready = useIsReady()
 
   const { data: wallet, isLoading: walletLoading } = useQuery({
     queryKey: ['wallet', 'me'],
     queryFn: () => walletApi.getMyWallet(),
     select: (r) => r.data.data,
+    enabled: ready,
   })
 
   const { data: statement, isLoading: stmtLoading } = useQuery({
     queryKey: ['wallet', 'statement', { page }],
     queryFn: () => walletApi.getMyStatement({ page, limit: 15 }),
     select: (r) => r.data.data,
+    enabled: ready,
   })
-
-  if (walletLoading) return <PageLoader />
 
   return (
     <div className="space-y-6">
@@ -98,56 +100,25 @@ export default function Wallet() {
                 <thead>
                   <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
                     {['Type', 'Amount', 'Balance After', 'Description', 'Date'].map((h) => (
-                      <th
-                        key={h}
-                        className="px-4 py-3 text-left text-xs font-medium text-[#94A3B8] uppercase tracking-wide whitespace-nowrap"
-                      >
-                        {h}
-                      </th>
+                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[#94A3B8] uppercase tracking-wide whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {statement.items.map((txn) => (
-                    <tr
-                      key={txn._id}
-                      className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors"
-                    >
+                    <tr key={txn._id} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors">
                       <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center gap-1 text-xs font-medium ${
-                            txn.type === 'CREDIT'
-                              ? 'text-[#16A34A]'
-                              : 'text-[#DC2626]'
-                          }`}
-                        >
-                          {txn.type === 'CREDIT' ? (
-                            <ArrowUpCircle size={13} />
-                          ) : (
-                            <ArrowDownCircle size={13} />
-                          )}
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium ${txn.type === 'CREDIT' ? 'text-[#16A34A]' : 'text-[#DC2626]'}`}>
+                          {txn.type === 'CREDIT' ? <ArrowUpCircle size={13} /> : <ArrowDownCircle size={13} />}
                           {txn.type}
                         </span>
                       </td>
-                      <td
-                        className={`px-4 py-3 font-mono font-semibold ${
-                          txn.type === 'CREDIT'
-                            ? 'text-[#16A34A]'
-                            : 'text-[#DC2626]'
-                        }`}
-                      >
-                        {txn.type === 'CREDIT' ? '+' : '-'}
-                        {formatCurrency(txn.amount)}
+                      <td className={`px-4 py-3 font-mono font-semibold ${txn.type === 'CREDIT' ? 'text-[#16A34A]' : 'text-[#DC2626]'}`}>
+                        {txn.type === 'CREDIT' ? '+' : '-'}{formatCurrency(txn.amount)}
                       </td>
-                      <td className="px-4 py-3 font-mono text-[#0F172A]">
-                        {formatCurrency(txn.balanceAfter)}
-                      </td>
-                      <td className="px-4 py-3 text-[#475569]">
-                        {txn.description || '—'}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-[#94A3B8] whitespace-nowrap">
-                        {formatDateTime(txn.createdAt)}
-                      </td>
+                      <td className="px-4 py-3 font-mono text-[#0F172A]">{formatCurrency(txn.balanceAfter)}</td>
+                      <td className="px-4 py-3 text-[#475569]">{txn.description || '—'}</td>
+                      <td className="px-4 py-3 text-xs text-[#94A3B8] whitespace-nowrap">{formatDateTime(txn.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>
