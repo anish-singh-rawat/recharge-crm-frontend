@@ -85,6 +85,7 @@ export default function Recharge() {
     queryFn: () => operatorsApi.getCircles(),
     select: (r) => {
       const d = r.data.data
+      if (Array.isArray(d?.circles)) return d.circles
       if (Array.isArray(d)) return d
       if (Array.isArray(d?.items)) return d.items
       return []
