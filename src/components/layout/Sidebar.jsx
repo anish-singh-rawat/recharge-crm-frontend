@@ -13,7 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  User,
+  Wifi,
 } from 'lucide-react'
 import clsx from 'clsx'
 import useAuthStore from '@/store/authStore'
@@ -34,6 +34,7 @@ const navItems = [
   { to: '/notifications', label: 'Notifications', icon: Bell, roles: ['admin', 'super_admin', 'retailer'] },
   { to: '/api-keys', label: 'API Keys', icon: Key, roles: ['admin', 'super_admin', 'retailer'] },
   { to: '/admin/logs', label: 'Logs', icon: FileText, roles: ['admin', 'super_admin'] },
+  { to: '/admin/provider', label: 'Provider', icon: Wifi, roles: ['admin', 'super_admin'] },
   { to: '/admin/settings', label: 'Settings', icon: Settings, roles: ['admin', 'super_admin'] },
 ]
 

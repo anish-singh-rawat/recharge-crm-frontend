@@ -29,6 +29,7 @@ import Users from '@/pages/admin/Users'
 import Operators from '@/pages/admin/Operators'
 import Settings from '@/pages/admin/Settings'
 import Logs from '@/pages/admin/Logs'
+import Provider from '@/pages/admin/Provider'
 import Maintenance from '@/pages/Maintenance'
 
 const queryClient = new QueryClient({
@@ -143,6 +144,7 @@ export default function App() {
                       <Route path="/admin/operators" element={<Operators />} />
                       <Route path="/admin/settings" element={<Settings />} />
                       <Route path="/admin/logs" element={<Logs />} />
+                      <Route path="/admin/provider" element={<Provider />} />
                     </Route>
                   </Route>
                 </Route>

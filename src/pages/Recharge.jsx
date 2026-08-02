@@ -45,7 +45,7 @@ export default function Recharge() {
     watch,
     setValue,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { type: 'MOBILE_PREPAID' },

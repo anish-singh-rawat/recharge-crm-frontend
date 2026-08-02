@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Pencil, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { operatorsApi } from '@/api/operators'
 import Card, { CardHeader } from '@/components/ui/Card'
@@ -31,7 +31,7 @@ const operatorSchema = z.object({
 
 function OperatorModal({ open, onClose, initial }) {
   const queryClient = useQueryClient()
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(operatorSchema),
     defaultValues: initial || { type: 'MOBILE_PREPAID' },
   })

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, Controller } from 'react-hook-form'
-import { Plus, Copy, X, CheckCircle, Eye, EyeOff } from 'lucide-react'
+import { Plus, Copy, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiKeysApi } from '@/api/apiKeys'
 import Card, { CardHeader } from '@/components/ui/Card'
@@ -16,7 +16,7 @@ import { formatDateTime, extractError } from '@/utils/format'
 import { PERMISSIONS } from '@/utils/constants'
 
 function CreateKeyModal({ open, onClose, onCreated }) {
-  const { register, handleSubmit, control, reset, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, control, reset, formState: { errors } } = useForm({
     defaultValues: { name: '', permissions: [], expiresAt: '' },
   })
 

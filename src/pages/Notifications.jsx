@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Bell, CheckCheck, Trash2, Send, Radio } from 'lucide-react'
+import { Bell, CheckCheck, Trash2, Radio } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -17,7 +17,7 @@ import { TableSkeleton } from '@/components/ui/LoadingSpinner'
 import Pagination from '@/components/ui/Pagination'
 import EmptyState from '@/components/ui/EmptyState'
 import { formatTimeAgo, extractError } from '@/utils/format'
-import { NOTIFICATION_TYPES, NOTIFICATION_TYPE_COLORS } from '@/utils/constants'
+import { NOTIFICATION_TYPES } from '@/utils/constants'
 import useAuthStore from '@/store/authStore'
 import clsx from 'clsx'
 
@@ -30,7 +30,7 @@ const broadcastSchema = z.object({
 
 function BroadcastModal({ open, onClose }) {
   const queryClient = useQueryClient()
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(broadcastSchema),
     defaultValues: { type: 'INFO', roles: 'retailer' },
   })

@@ -1,10 +1,7 @@
-import { Bell, Menu, Search, RefreshCw } from 'lucide-react'
+import { Bell, Menu } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
 import useAuthStore from '@/store/authStore'
-import { notificationsApi } from '@/api/notifications'
 import { getInitials } from '@/utils/format'
-import clsx from 'clsx'
 
 export default function Header({ onMenuClick, unreadCount }) {
   const { user } = useAuthStore()
