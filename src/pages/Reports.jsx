@@ -1,16 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, LineChart, Line, Cell,
 } from 'recharts'
 import { reportsApi } from '@/api/reports'
 import Card, { CardHeader } from '@/components/ui/Card'
@@ -25,11 +17,27 @@ import { useIsReady } from '@/hooks/useIsReady'
 
 const COLORS = ['#2563EB', '#16A34A', '#D97706', '#DC2626', '#0891B2', '#7C3AED']
 
+const WALLET_TYPE_COLOR = {
+  CREDIT: 'text-[#16A34A]',
+  DEBIT: 'text-[#DC2626]',
+  REFUND: 'text-[#0891B2]',
+  REVERSAL: 'text-[#D97706]',
+  COMMISSION: 'text-[#7C3AED]',
+  SETTLEMENT: 'text-[#475569]',
+  PENALTY: 'text-[#DC2626]',
+  ADJUSTMENT: 'text-[#D97706]',
+}
+
 const ADMIN_TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'recharge', label: 'Recharge' },
   { key: 'wallet', label: 'Wallet' },
   { key: 'commission', label: 'Commission' },
+]
+
+const RETAILER_TABS = [
+  { key: 'recharge', label: 'My Recharge' },
+  { key: 'wallet', label: 'My Wallet' },
 ]
 
 export default function Reports() {
@@ -39,6 +47,10 @@ export default function Reports() {
   const [tab, setTab] = useState('overview')
   const [rechargePage, setRechargePage] = useState(1)
   const [walletPage, setWalletPage] = useState(1)
+  const [retailerTab, setRetailerTab] = useState('recharge')
+  const [myRechargePage, setMyRechargePage] = useState(1)
+  const [myWalletPage, setMyWalletPage] = useState(1)
+  const [myRechargeStatus, setMyRechargeStatus] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
   const [dateRange, setDateRange] = useState({
@@ -113,16 +125,27 @@ export default function Reports() {
     enabled: ready && admin && tab === 'commission',
   })
 
-  const { data: myRechargeReport } = useQuery({
-    queryKey: ['reports', 'recharge-my', dateRange],
-    queryFn: () => reportsApi.getMyRechargeReport(dateRange),
+  const { data: myRechargeReport, isLoading: myRechargeLoading } = useQuery({
+    queryKey: ['reports', 'recharge-my', { page: myRechargePage, status: myRechargeStatus, ...dateRange }],
+    queryFn: () =>
+      reportsApi.getMyRechargeReport({
+        page: myRechargePage,
+        limit: 20,
+        ...dateRange,
+        ...(myRechargeStatus && { status: myRechargeStatus }),
+      }),
     select: (r) => r.data.data,
     enabled: ready && !admin,
   })
 
-  const { data: myWalletReport } = useQuery({
-    queryKey: ['reports', 'wallet-my', dateRange],
-    queryFn: () => reportsApi.getMyWalletReport(dateRange),
+  const { data: myWalletReport, isLoading: myWalletLoading } = useQuery({
+    queryKey: ['reports', 'wallet-my', { page: myWalletPage, ...dateRange }],
+    queryFn: () =>
+      reportsApi.getMyWalletReport({
+        page: myWalletPage,
+        limit: 20,
+        ...dateRange,
+      }),
     select: (r) => r.data.data,
     enabled: ready && !admin,
   })
@@ -502,54 +525,133 @@ export default function Reports() {
           )}
         </>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <Card>
-            <CardHeader title="My Recharge Summary" />
-            {myRechargeReport ? (
-              <div className="space-y-2">
-                {Object.entries(myRechargeReport).map(([k, v]) => (
-                  <div
-                    key={k}
-                    className="flex justify-between py-1.5 border-b border-[#E2E8F0] last:border-0 text-sm"
-                  >
-                    <span className="text-[#94A3B8] capitalize">
-                      {k.replace(/([A-Z])/g, ' $1')}
-                    </span>
-                    <span className="font-mono font-medium text-[#0F172A]">
-                      {typeof v === 'number' && k.toLowerCase().includes('amount')
-                        ? formatCurrency(v)
-                        : String(v)}
-                    </span>
-                  </div>
-                ))}
+        <>
+          <div className="flex gap-1 bg-[#F1F5F9] p-1 rounded-lg w-fit">
+            {RETAILER_TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setRetailerTab(t.key)}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  retailerTab === t.key
+                    ? 'bg-white text-[#0F172A] shadow-sm'
+                    : 'text-[#94A3B8] hover:text-[#475569]'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {retailerTab === 'recharge' && (
+            <Card padding={false}>
+              <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
+                <CardHeader title="My Recharge Report" />
+                <select
+                  value={myRechargeStatus}
+                  onChange={(e) => { setMyRechargeStatus(e.target.value); setMyRechargePage(1) }}
+                  className="text-sm border border-[#E2E8F0] rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                >
+                  <option value="">All Status</option>
+                  {['SUCCESS', 'FAILED', 'PENDING', 'PROCESSING', 'REFUNDED', 'TIMEOUT'].map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
               </div>
-            ) : (
-              <p className="text-sm text-[#94A3B8]">No data for this period</p>
-            )}
-          </Card>
-          <Card>
-            <CardHeader title="My Wallet Summary" />
-            {myWalletReport ? (
-              <div className="space-y-2">
-                {Object.entries(myWalletReport).map(([k, v]) => (
-                  <div
-                    key={k}
-                    className="flex justify-between py-1.5 border-b border-[#E2E8F0] last:border-0 text-sm"
-                  >
-                    <span className="text-[#94A3B8] capitalize">
-                      {k.replace(/([A-Z])/g, ' $1')}
-                    </span>
-                    <span className="font-mono font-medium text-[#0F172A]">
-                      {typeof v === 'number' ? formatCurrency(v) : String(v)}
-                    </span>
+              {myRechargeLoading ? (
+                <TableSkeleton rows={8} cols={7} />
+              ) : !myRechargeReport?.items?.length ? (
+                <EmptyState title="No recharge data for this period" />
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
+                          {['Txn ID', 'Mobile', 'Operator', 'Circle', 'Amount', 'Commission', 'Status', 'Date'].map((h) => (
+                            <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[#94A3B8] uppercase tracking-wide whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myRechargeReport.items.map((txn) => (
+                          <tr key={txn._id} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors">
+                            <td className="px-4 py-3 font-mono text-xs text-[#475569]">
+                              {txn.txnId?.slice(-10)}
+                            </td>
+                            <td className="px-4 py-3 font-medium text-[#0F172A]">{txn.mobileNumber}</td>
+                            <td className="px-4 py-3 text-[#475569]">{txn.operator?.name || '—'}</td>
+                            <td className="px-4 py-3 text-[#475569]">{txn.circle?.name || '—'}</td>
+                            <td className="px-4 py-3 font-mono font-medium text-[#0F172A]">{formatCurrency(txn.amount)}</td>
+                            <td className="px-4 py-3 font-mono text-xs text-[#7C3AED]">
+                              {txn.commission ? formatCurrency(txn.commission) : '—'}
+                            </td>
+                            <td className="px-4 py-3"><StatusBadge status={txn.status} /></td>
+                            <td className="px-4 py-3 text-xs text-[#94A3B8] whitespace-nowrap">{formatDateTime(txn.createdAt)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                ))}
+                  <Pagination pagination={myRechargeReport.pagination} onPageChange={setMyRechargePage} />
+                </>
+              )}
+            </Card>
+          )}
+
+          {retailerTab === 'wallet' && (
+            <Card padding={false}>
+              <div className="p-4 border-b border-[#E2E8F0]">
+                <CardHeader title="My Wallet Report" />
               </div>
-            ) : (
-              <p className="text-sm text-[#94A3B8]">No data for this period</p>
-            )}
-          </Card>
-        </div>
+              {myWalletLoading ? (
+                <TableSkeleton rows={8} cols={6} />
+              ) : !myWalletReport?.items?.length ? (
+                <EmptyState title="No wallet data for this period" />
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
+                          {['Txn ID', 'Type', 'Amount', 'Balance Before', 'Balance After', 'Description', 'Reference', 'Date'].map((h) => (
+                            <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[#94A3B8] uppercase tracking-wide whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myWalletReport.items.map((txn) => (
+                          <tr key={txn._id} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors">
+                            <td className="px-4 py-3 font-mono text-xs text-[#475569]">
+                              {txn.txnId?.slice(-10)}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`text-xs font-semibold ${WALLET_TYPE_COLOR[txn.type] || 'text-[#475569]'}`}>
+                                {txn.type}
+                              </span>
+                            </td>
+                            <td className={`px-4 py-3 font-mono font-semibold ${WALLET_TYPE_COLOR[txn.type] || 'text-[#475569]'}`}>
+                              {['DEBIT', 'PENALTY'].includes(txn.type) ? '-' : '+'}{formatCurrency(txn.amount)}
+                            </td>
+                            <td className="px-4 py-3 font-mono text-[#475569]">{formatCurrency(txn.balanceBefore)}</td>
+                            <td className="px-4 py-3 font-mono font-medium text-[#0F172A]">{formatCurrency(txn.balanceAfter)}</td>
+                            <td className="px-4 py-3 text-[#475569] max-w-[140px] truncate">{txn.description || '—'}</td>
+                            <td className="px-4 py-3 font-mono text-xs text-[#94A3B8]">
+                              {txn.referenceId ? (
+                                <span title={txn.referenceId}>{txn.referenceId.slice(-10)}</span>
+                              ) : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-[#94A3B8] whitespace-nowrap">{formatDateTime(txn.createdAt)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <Pagination pagination={myWalletReport.pagination} onPageChange={setMyWalletPage} />
+                </>
+              )}
+            </Card>
+          )}
+        </>
       )}
     </div>
   )

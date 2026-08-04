@@ -1,14 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Zap, Loader } from 'lucide-react'
+import { Zap, Loader, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { rechargeApi } from '@/api/recharge'
 import { operatorsApi } from '@/api/operators'
 import { walletApi } from '@/api/wallet'
-import { providerApi } from '@/api/provider'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
@@ -21,6 +20,7 @@ import { formatCurrency, formatDateTime, extractError } from '@/utils/format'
 import { RECHARGE_TYPES } from '@/utils/constants'
 import { useSocket } from '@/hooks/useSocket'
 import { useIsReady } from '@/hooks/useIsReady'
+import { useDetectOperator } from '@/hooks/useDetectOperator'
 
 const schema = z.object({
   mobileNumber: z
@@ -42,7 +42,7 @@ export default function Recharge() {
   const [mobileFilter, setMobileFilter] = useState('')
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [lastTxn, setLastTxn] = useState(null)
-  const [detectingOperator, setDetectingOperator] = useState(false)
+  const [autoDetectedId, setAutoDetectedId] = useState(null)
 
   const {
     register,
@@ -59,6 +59,7 @@ export default function Recharge() {
   const rechargeType = watch('type')
   const operatorId = watch('operatorId')
   const circleId = watch('circleId')
+  const mobileNumber = watch('mobileNumber')
 
   const { data: wallet } = useQuery({
     queryKey: ['wallet', 'me'],
@@ -148,6 +149,8 @@ export default function Recharge() {
       toast.success('Recharge initiated!')
       reset({ type: 'MOBILE_PREPAID' })
       setSelectedPlan(null)
+      setAutoDetectedId(null)
+      resetDetect()
       queryClient.invalidateQueries({ queryKey: ['recharge', 'my'] })
       queryClient.invalidateQueries({ queryKey: ['wallet', 'me'] })
     },
@@ -166,33 +169,33 @@ export default function Recharge() {
     setValue('amount', String(plan.amount))
   }
 
+  const { detecting, detectedOperator, reset: resetDetect } = useDetectOperator(mobileNumber, rechargeType)
+
+  useEffect(() => {
+    if (!detectedOperator) return
+
+    if (detectedOperator.operatorCode) {
+      const matched = operators.find(
+        (o) => o.code?.toUpperCase() === detectedOperator.operatorCode?.toUpperCase()
+      )
+      if (matched) {
+        setValue('operatorId', matched._id)
+        setAutoDetectedId(matched._id)
+      }
+    }
+
+    if (detectedOperator.circleCode) {
+      const matchedCircle = circles.find(
+        (c) => c.code?.toUpperCase() === detectedOperator.circleCode?.toUpperCase()
+      )
+      if (matchedCircle) {
+        setValue('circleId', matchedCircle._id)
+      }
+    }
+  }, [detectedOperator, operators, circles, setValue])
+
   const operatorOptions = operators.map((o) => ({ value: o._id, label: o.name }))
   const circleOptions = circles.map((c) => ({ value: c._id, label: c.name }))
-
-  const handleMobileBlur = async (e) => {
-    const mobile = e.target.value
-    if (!/^[6-9]\d{9}$/.test(mobile)) return
-    setDetectingOperator(true)
-    try {
-      const res = await providerApi.detectOperator(mobile)
-      const detected = res.data.data
-      if (detected?.operatorCode) {
-        const matched = operators.find(
-          (o) => o.code === detected.operatorCode || o.name?.toLowerCase() === detected.operator?.toLowerCase()
-        )
-        if (matched) setValue('operatorId', matched._id)
-      }
-      if (detected?.circleCode) {
-        const matchedCircle = circles.find(
-          (c) => c.code === detected.circleCode || c.name?.toLowerCase() === detected.circle?.toLowerCase()
-        )
-        if (matchedCircle) setValue('circleId', matchedCircle._id)
-      }
-    } catch {
-    } finally {
-      setDetectingOperator(false)
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -231,25 +234,49 @@ export default function Recharge() {
                   setValue('operatorId', '')
                   setValue('circleId', '')
                   setSelectedPlan(null)
+                  setAutoDetectedId(null)
+                  resetDetect()
                 }}
               />
-              <Input
-                label="Mobile / Account Number"
-                placeholder="9876543210"
-                error={errors.mobileNumber?.message}
-                required
-                rightElement={detectingOperator ? <Loader size={14} className="animate-spin text-[#94A3B8]" /> : null}
-                {...register('mobileNumber')}
-                onBlur={handleMobileBlur}
-              />
-              <Select
-                label="Operator"
-                options={operatorOptions}
-                placeholder="Select operator"
-                error={errors.operatorId?.message}
-                required
-                {...register('operatorId')}
-              />
+              <div className="flex flex-col gap-1">
+                <Input
+                  label="Mobile / Account Number"
+                  placeholder="9876543210"
+                  error={errors.mobileNumber?.message}
+                  required
+                  rightElement={
+                    detecting ? (
+                      <span className="flex items-center gap-1 text-xs text-[#94A3B8]">
+                        <Loader size={13} className="animate-spin" />
+                        <span className="hidden sm:inline">Detecting…</span>
+                      </span>
+                    ) : null
+                  }
+                  {...register('mobileNumber')}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Select
+                  label="Operator"
+                  options={operatorOptions}
+                  placeholder="Select operator"
+                  error={errors.operatorId?.message}
+                  required
+                  {...register('operatorId')}
+                  onChange={(e) => {
+                    setValue('operatorId', e.target.value)
+                    if (autoDetectedId && e.target.value !== autoDetectedId) {
+                      setAutoDetectedId(null)
+                    }
+                  }}
+                />
+                {autoDetectedId && operatorId === autoDetectedId && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#16A34A]">
+                    <CheckCircle size={11} />
+                    Auto-detected
+                  </span>
+                )}
+              </div>
               <Select
                 label="Circle / State"
                 options={circleOptions}
