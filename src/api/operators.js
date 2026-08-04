@@ -19,6 +19,17 @@ export const operatorsApi = {
     api.get('/operators/plans/by-operator', {
       params: { operatorId, circleId },
     }),
+
+  getPlanRecommendations: (operatorId, circleId) =>
+    api.get('/operators/plans/recommendations', {
+      params: { operatorId, circleId },
+    }),
+
+  validatePlanAmount: (operatorId, circleId, amount) =>
+    api.get('/operators/plans/validate', {
+      params: { operatorId, circleId, amount },
+    }),
+
   createPlan: (data) => api.post('/operators/plans', data),
   getPlanById: (id) => api.get(`/operators/plans/${id}`),
   updatePlan: (id, data) => api.put(`/operators/plans/${id}`, data),

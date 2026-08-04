@@ -16,6 +16,7 @@ import StatusBadge from '@/components/ui/StatusBadge'
 import { TableSkeleton } from '@/components/ui/LoadingSpinner'
 import Pagination from '@/components/ui/Pagination'
 import EmptyState from '@/components/ui/EmptyState'
+import PlanRecommendations from '@/components/recharge/PlanRecommendations'
 import { formatCurrency, formatDateTime, extractError } from '@/utils/format'
 import { RECHARGE_TYPES } from '@/utils/constants'
 import { useSocket } from '@/hooks/useSocket'
@@ -60,6 +61,8 @@ export default function Recharge() {
   const operatorId = watch('operatorId')
   const circleId = watch('circleId')
   const mobileNumber = watch('mobileNumber')
+  const typedAmount = watch('amount')
+
 
   const { data: wallet } = useQuery({
     queryKey: ['wallet', 'me'],
@@ -94,18 +97,6 @@ export default function Recharge() {
     enabled: ready,
   })
 
-  const { data: plans = [] } = useQuery({
-    queryKey: ['plans', operatorId, circleId],
-    queryFn: () => operatorsApi.getPlansByOperator(operatorId, circleId),
-    select: (r) => {
-      const d = r.data.data
-      if (Array.isArray(d)) return d
-      if (Array.isArray(d?.items)) return d.items
-      return []
-    },
-    enabled: ready && !!operatorId && !!circleId,
-  })
-
   const { data: txnsData, isLoading: txnsLoading } = useQuery({
     queryKey: ['recharge', 'my', { page, status: statusFilter, mobileNumber: mobileFilter }],
     queryFn: () =>
@@ -119,6 +110,7 @@ export default function Recharge() {
     enabled: ready,
   })
 
+
   useSocket({
     'recharge:update': () => {
       queryClient.invalidateQueries({ queryKey: ['recharge', 'my'] })
@@ -127,7 +119,7 @@ export default function Recharge() {
       setLastTxn((prev) =>
         prev?.txnId === payload.transaction?.txnId
           ? { ...prev, status: 'SUCCESS' }
-          : prev
+          : prev,
       )
       queryClient.invalidateQueries({ queryKey: ['recharge', 'my'] })
       queryClient.invalidateQueries({ queryKey: ['wallet', 'me'] })
@@ -136,11 +128,12 @@ export default function Recharge() {
       setLastTxn((prev) =>
         prev?.txnId === payload.transaction?.txnId
           ? { ...prev, status: 'FAILED' }
-          : prev
+          : prev,
       )
       queryClient.invalidateQueries({ queryKey: ['recharge', 'my'] })
     },
   })
+
 
   const rechargeMutation = useMutation({
     mutationFn: (data) => rechargeApi.initiateRecharge(data),
@@ -158,25 +151,27 @@ export default function Recharge() {
   })
 
   const onSubmit = (values) => {
-    rechargeMutation.mutate({
-      ...values,
-      amount: Number(values.amount),
-    })
+    rechargeMutation.mutate({ ...values, amount: Number(values.amount) })
   }
+
 
   const applyPlan = (plan) => {
     setSelectedPlan(plan)
-    setValue('amount', String(plan.amount))
+    setValue('amount', String(plan.amount), { shouldValidate: true })
   }
 
-  const { detecting, detectedOperator, reset: resetDetect } = useDetectOperator(mobileNumber, rechargeType)
+
+  const { detecting, detectedOperator, reset: resetDetect } = useDetectOperator(
+    mobileNumber,
+    rechargeType,
+  )
 
   useEffect(() => {
     if (!detectedOperator) return
 
     if (detectedOperator.operatorCode) {
       const matched = operators.find(
-        (o) => o.code?.toUpperCase() === detectedOperator.operatorCode?.toUpperCase()
+        (o) => o.code?.toUpperCase() === detectedOperator.operatorCode?.toUpperCase(),
       )
       if (matched) {
         setValue('operatorId', matched._id)
@@ -186,7 +181,7 @@ export default function Recharge() {
 
     if (detectedOperator.circleCode) {
       const matchedCircle = circles.find(
-        (c) => c.code?.toUpperCase() === detectedOperator.circleCode?.toUpperCase()
+        (c) => c.code?.toUpperCase() === detectedOperator.circleCode?.toUpperCase(),
       )
       if (matchedCircle) {
         setValue('circleId', matchedCircle._id)
@@ -194,8 +189,13 @@ export default function Recharge() {
     }
   }, [detectedOperator, operators, circles, setValue])
 
+  useEffect(() => {
+    setSelectedPlan(null)
+  }, [operatorId, circleId])
+
   const operatorOptions = operators.map((o) => ({ value: o._id, label: o.name }))
   const circleOptions = circles.map((c) => ({ value: c._id, label: c.name }))
+
 
   return (
     <div className="space-y-6">
@@ -213,9 +213,10 @@ export default function Recharge() {
             <p className="text-2xl font-bold font-mono text-[#0F172A]">
               {formatCurrency(wallet?.balance)}
             </p>
-            <p className="text-xs mt-0.5" style={{
-              color: wallet?.status === 'ACTIVE' ? '#16A34A' : '#DC2626'
-            }}>
+            <p
+              className="text-xs mt-0.5"
+              style={{ color: wallet?.status === 'ACTIVE' ? '#16A34A' : '#DC2626' }}
+            >
               {wallet?.status || 'ACTIVE'}
             </p>
           </Card>
@@ -238,6 +239,7 @@ export default function Recharge() {
                   resetDetect()
                 }}
               />
+
               <div className="flex flex-col gap-1">
                 <Input
                   label="Mobile / Account Number"
@@ -255,6 +257,7 @@ export default function Recharge() {
                   {...register('mobileNumber')}
                 />
               </div>
+
               <div className="flex flex-col gap-1">
                 <Select
                   label="Operator"
@@ -277,6 +280,7 @@ export default function Recharge() {
                   </span>
                 )}
               </div>
+
               <Select
                 label="Circle / State"
                 options={circleOptions}
@@ -285,6 +289,7 @@ export default function Recharge() {
                 required
                 {...register('circleId')}
               />
+
               <Input
                 label="Amount (₹)"
                 type="number"
@@ -292,12 +297,31 @@ export default function Recharge() {
                 error={errors.amount?.message}
                 required
                 {...register('amount')}
+            
+                onChange={(e) => {
+                  register('amount').onChange(e)
+                  if (
+                    selectedPlan &&
+                    String(selectedPlan.amount) !== e.target.value
+                  ) {
+                    setSelectedPlan(null)
+                  }
+                }}
               />
+
               {selectedPlan && (
-                <div className="p-2.5 bg-[#DBEAFE] rounded-md text-xs text-[#2563EB]">
-                  Plan: {selectedPlan.description} — Valid {selectedPlan.validity} days
+                <div className="p-2.5 bg-[#DBEAFE] rounded-md text-xs text-[#2563EB] flex items-center gap-1.5">
+                  <CheckCircle size={12} />
+                  <span>
+                    {selectedPlan.description
+                      ? `${selectedPlan.description} — `
+                      : ''}
+                    Valid {selectedPlan.validity}
+                    {selectedPlan.dataAmount ? ` · ${selectedPlan.dataAmount}` : ''}
+                  </span>
                 </div>
               )}
+
               <Button
                 type="submit"
                 className="w-full"
@@ -309,6 +333,7 @@ export default function Recharge() {
             </form>
           </Card>
 
+          {/* Last transaction summary */}
           {lastTxn && (
             <Card>
               <CardHeader title="Last Transaction" />
@@ -323,41 +348,32 @@ export default function Recharge() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#94A3B8]">Amount</span>
-                  <span className="font-mono font-medium">{formatCurrency(lastTxn.amount)}</span>
+                  <span className="font-mono font-medium">
+                    {formatCurrency(lastTxn.amount)}
+                  </span>
                 </div>
               </div>
             </Card>
           )}
         </div>
 
+        {/* ── Right column: plan recommendations + transaction history ──── */}
         <div className="lg:col-span-2 space-y-4">
-          {plans.length > 0 && (
-            <Card>
-              <CardHeader title="Available Plans" />
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {plans.map((plan) => (
-                  <button
-                    key={plan._id}
-                    onClick={() => applyPlan(plan)}
-                    className="p-3 border border-[#E2E8F0] rounded-lg hover:border-[#2563EB] hover:bg-[#DBEAFE] transition-colors text-left group"
-                  >
-                    <p className="text-sm font-bold font-mono text-[#0F172A] group-hover:text-[#2563EB]">
-                      ₹{plan.amount}
-                    </p>
-                    <p className="text-xs text-[#94A3B8] mt-0.5 line-clamp-2">
-                      {plan.description}
-                    </p>
-                    {plan.validity && (
-                      <p className="text-[10px] text-[#2563EB] mt-1">
-                        {plan.validity} days
-                      </p>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </Card>
-          )}
+          {/*
+            PlanRecommendations handles its own visibility guard:
+            only renders when operatorId + circleId are set and type is mobile.
+            Passes typedAmount so validation banner updates as the retailer types.
+          */}
+          <PlanRecommendations
+            operatorId={operatorId}
+            circleId={circleId}
+            rechargeType={rechargeType}
+            typedAmount={typedAmount}
+            selectedPlan={selectedPlan}
+            onSelectPlan={applyPlan}
+          />
 
+          {/* Transaction history table */}
           <Card padding={false}>
             <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
               <h2 className="text-base font-semibold text-[#0F172A]">My Transactions</h2>
@@ -365,7 +381,10 @@ export default function Recharge() {
                 <input
                   placeholder="Filter by mobile..."
                   value={mobileFilter}
-                  onChange={(e) => { setMobileFilter(e.target.value.replace(/\D/g, '').slice(0, 10)); setPage(1) }}
+                  onChange={(e) => {
+                    setMobileFilter(e.target.value.replace(/\D/g, '').slice(0, 10))
+                    setPage(1)
+                  }}
                   className="w-32 px-3 py-1.5 text-sm border border-[#E2E8F0] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                 />
                 <select
@@ -374,9 +393,9 @@ export default function Recharge() {
                   className="text-sm border border-[#E2E8F0] rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                 >
                   <option value="">All Status</option>
-                  {['SUCCESS', 'FAILED', 'PENDING', 'PROCESSING', 'INITIATED', 'REFUNDED', 'TIMEOUT'].map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
+                  {['SUCCESS', 'FAILED', 'PENDING', 'PROCESSING', 'INITIATED', 'REFUNDED', 'TIMEOUT'].map(
+                    (s) => <option key={s} value={s}>{s}</option>,
+                  )}
                 </select>
               </div>
             </div>
