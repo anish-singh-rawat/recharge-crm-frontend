@@ -63,10 +63,12 @@ export const getInitials = (name) => {
 
 export const extractError = (error) => {
   if (error?.response?.data?.message) {
-    return error.response.data.message
-  }
-  if (error?.response?.data?.errors?.length) {
-    return error.response.data.errors.map((e) => e.message).join(', ')
+    const msg = error.response.data.message
+    const fieldErrors = error.response.data.errors
+    if (Array.isArray(fieldErrors) && fieldErrors.length) {
+      return fieldErrors.map((e) => e.message || e.msg).filter(Boolean).join(', ') || msg
+    }
+    return msg
   }
   if (error?.message) return error.message
   return 'Something went wrong'
