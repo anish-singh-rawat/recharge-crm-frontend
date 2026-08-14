@@ -1,16 +1,6 @@
 export const RECHARGE_TYPES = [
   { value: 'MOBILE_PREPAID', label: 'Mobile Prepaid' },
   { value: 'MOBILE_POSTPAID', label: 'Mobile Postpaid' },
-  { value: 'DTH', label: 'DTH' },
-  { value: 'BROADBAND', label: 'Broadband' },
-  { value: 'LANDLINE', label: 'Landline' },
-  { value: 'ELECTRICITY', label: 'Electricity' },
-  { value: 'GAS', label: 'Gas' },
-  { value: 'WATER', label: 'Water' },
-  { value: 'FASTAG', label: 'FASTag' },
-  { value: 'INSURANCE', label: 'Insurance' },
-  { value: 'LPG', label: 'LPG' },
-  { value: 'CABLE_TV', label: 'Cable TV' },
 ]
 
 export const TRANSACTION_STATUSES = [
