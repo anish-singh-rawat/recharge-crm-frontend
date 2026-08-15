@@ -24,6 +24,7 @@ import Wallet from '@/pages/Wallet'
 import Reports from '@/pages/Reports'
 import Notifications from '@/pages/Notifications'
 import ApiKeys from '@/pages/ApiKeys'
+import ApiDocs from '@/pages/ApiDocs'
 import Profile from '@/pages/Profile'
 import AdminWallet from '@/pages/admin/AdminWallet'
 import AdminRecharge from '@/pages/admin/AdminRecharge'
@@ -188,6 +189,7 @@ export default function App() {
                     <Route path="/reports" element={<Reports />} />
                     <Route path="/notifications" element={<Notifications />} />
                     <Route path="/api-keys" element={<ApiKeys />} />
+                    <Route path="/api-docs" element={<ApiDocs />} />
                     <Route path="/profile" element={<Profile />} />
 
                     <Route element={<AdminRoute />}>

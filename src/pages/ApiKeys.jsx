@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, Controller } from 'react-hook-form'
-import { Plus, Copy, CheckCircle } from 'lucide-react'
+import { Plus, Copy, CheckCircle, BookOpen, Key } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { apiKeysApi } from '@/api/apiKeys'
 import Card, { CardHeader } from '@/components/ui/Card'
@@ -148,10 +149,35 @@ export default function ApiKeys() {
           <h1 className="text-2xl font-bold text-[#0F172A]">API Keys</h1>
           <p className="text-sm text-[#94A3B8] mt-0.5">Manage programmatic access keys</p>
         </div>
-        <Button leftIcon={<Plus size={16} />} onClick={() => setCreateModal(true)}>
-          Create Key
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/api-docs"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#E2E8F0] text-sm font-medium text-[#475569] hover:bg-[#F8FAFC] transition-colors"
+          >
+            <BookOpen size={15} />
+            API Docs
+          </Link>
+          <Button leftIcon={<Plus size={16} />} onClick={() => setCreateModal(true)}>
+            Create Key
+          </Button>
+        </div>
       </div>
+
+      <Card>
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-[#EFF6FF] flex items-center justify-center shrink-0">
+            <Key size={16} className="text-[#2563EB]" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-[#0F172A]">How to use your API key</p>
+            <p className="text-xs text-[#475569] mt-0.5">
+              Pass your API key in the <code className="bg-[#F1F5F9] px-1 rounded font-mono">X-Api-Key</code> request header when calling{' '}
+              <code className="bg-[#F1F5F9] px-1 rounded font-mono">/api/v1/ext/*</code> endpoints.
+              Read the <Link to="/api-docs" className="text-[#2563EB] hover:underline">API Documentation</Link> for the full guide.
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {!keys?.length ? (
         <Card>
