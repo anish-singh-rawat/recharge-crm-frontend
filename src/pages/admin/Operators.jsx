@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, LayoutList } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { operatorsApi } from '@/api/operators'
 import Card, { CardHeader } from '@/components/ui/Card'
@@ -239,6 +240,13 @@ export default function Operators() {
                         <td className="px-4 py-3 text-[#475569]">{op.commission ? `${op.commission}%` : '—'}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
+                            <Link
+                              to={`/admin/operators/${op._id}/plans`}
+                              className="p-1.5 rounded hover:bg-[#EFF6FF] text-[#2563EB] transition-colors"
+                              title="Manage Plans"
+                            >
+                              <LayoutList size={14} />
+                            </Link>
                             <button onClick={() => setOpModal(op)} className="p-1.5 rounded hover:bg-[#F1F5F9] text-[#475569] transition-colors"><Pencil size={14} /></button>
                             <button onClick={() => setDeleteTarget({ type: 'operator', id: op._id, name: op.name })} className="p-1.5 rounded hover:bg-[#FEE2E2] text-[#DC2626] transition-colors"><Trash2 size={14} /></button>
                           </div>

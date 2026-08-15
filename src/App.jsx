@@ -30,6 +30,7 @@ import AdminWallet from '@/pages/admin/AdminWallet'
 import AdminRecharge from '@/pages/admin/AdminRecharge'
 import Users from '@/pages/admin/Users'
 import Operators from '@/pages/admin/Operators'
+import OperatorPlans from '@/pages/admin/OperatorPlans'
 import Settings from '@/pages/admin/Settings'
 import Logs from '@/pages/admin/Logs'
 import Provider from '@/pages/admin/Provider'
@@ -197,6 +198,7 @@ export default function App() {
                       <Route path="/admin/recharge" element={<AdminRecharge />} />
                       <Route path="/admin/users" element={<Users />} />
                       <Route path="/admin/operators" element={<Operators />} />
+                      <Route path="/admin/operators/:id/plans" element={<OperatorPlans />} />
                       <Route path="/admin/settings" element={<Settings />} />
                       <Route path="/admin/logs" element={<Logs />} />
                       <Route path="/admin/provider" element={<Provider />} />

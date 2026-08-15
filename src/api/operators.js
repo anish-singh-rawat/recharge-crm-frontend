@@ -34,4 +34,5 @@ export const operatorsApi = {
   getPlanById: (id) => api.get(`/operators/plans/${id}`),
   updatePlan: (id, data) => api.put(`/operators/plans/${id}`, data),
   deletePlan: (id) => api.delete(`/operators/plans/${id}`),
+  deleteAllPlansByOperator: (operatorId) => api.delete(`/operators/${operatorId}/plans`),
 }
