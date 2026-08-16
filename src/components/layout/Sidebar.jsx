@@ -31,6 +31,7 @@ const navItems = [
   { to: '/admin/recharge', label: 'Transactions', icon: Zap, roles: ['admin', 'super_admin'] },
   { to: '/admin/users', label: 'Users', icon: Users, roles: ['admin', 'super_admin'] },
   { to: '/admin/operators', label: 'Operators', icon: Building2, roles: ['admin', 'super_admin'] },
+  { to: '/operators', label: 'Operators & Plans', icon: Building2, roles: ['retailer'] },
   { to: '/reports', label: 'Reports', icon: BarChart2, roles: ['admin', 'super_admin', 'retailer'] },
   { to: '/notifications', label: 'Notifications', icon: Bell, roles: ['admin', 'super_admin', 'retailer'] },
   { to: '/api-keys', label: 'API Keys', icon: Key, roles: ['admin', 'super_admin', 'retailer'] },

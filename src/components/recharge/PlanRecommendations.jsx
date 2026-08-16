@@ -32,7 +32,6 @@ function PlanCardSkeleton() {
   )
 }
 
-
 function ValidationBanner({ validationState, matchedPlan, typedAmount }) {
   if (validationState === 'idle' || validationState === 'no_plans') return null
 
@@ -48,34 +47,20 @@ function ValidationBanner({ validationState, matchedPlan, typedAmount }) {
             {formatCurrency(matchedPlan.amount)}
           </span>
           {matchedPlan.dataAmount ? (
-            <span className="inline-flex items-center gap-1">
-              <Wifi size={11} />
-              {matchedPlan.dataAmount}
-            </span>
+            <span className="inline-flex items-center gap-1"><Wifi size={11} />{matchedPlan.dataAmount}</span>
           ) : null}
           {matchedPlan.validity ? (
-            <span className="inline-flex items-center gap-1">
-              <Clock size={11} />
-              Validity {matchedPlan.validity}
-            </span>
+            <span className="inline-flex items-center gap-1"><Clock size={11} />Validity {matchedPlan.validity}</span>
           ) : null}
           {matchedPlan.smsCount > 0 ? (
-            <span className="inline-flex items-center gap-1">
-              <MessageSquare size={11} />
-              {matchedPlan.smsCount} SMS/day
-            </span>
+            <span className="inline-flex items-center gap-1"><MessageSquare size={11} />{matchedPlan.smsCount} SMS/day</span>
           ) : null}
           {/unlimited/i.test(matchedPlan.description) ? (
-            <span className="inline-flex items-center gap-1">
-              <Phone size={11} />
-              Unlimited Calling
-            </span>
+            <span className="inline-flex items-center gap-1"><Phone size={11} />Unlimited Calling</span>
           ) : null}
         </div>
         {matchedPlan.description ? (
-          <p className="mt-1.5 text-[11px] text-[#475569] line-clamp-2">
-            {matchedPlan.description}
-          </p>
+          <p className="mt-1.5 text-[11px] text-[#475569] line-clamp-2">{matchedPlan.description}</p>
         ) : null}
       </div>
     )
@@ -96,7 +81,6 @@ function ValidationBanner({ validationState, matchedPlan, typedAmount }) {
   return null
 }
 
-
 function PopularPill({ plan, isSelected, onSelect }) {
   return (
     <button
@@ -115,7 +99,6 @@ function PopularPill({ plan, isSelected, onSelect }) {
   )
 }
 
-
 export default function PlanRecommendations({
   operatorId,
   circleId,
@@ -123,8 +106,15 @@ export default function PlanRecommendations({
   typedAmount,
   selectedPlan,
   onSelectPlan,
+  externalData,
 }) {
   const [search, setSearch] = useState('')
+
+  const hookData = usePlanRecommendations(
+    externalData
+      ? { operatorId: null, circleId: null, rechargeType: null, typedAmount: null }
+      : { operatorId, circleId, rechargeType, typedAmount }
+  )
 
   const {
     popularPlans,
@@ -133,42 +123,31 @@ export default function PlanRecommendations({
     isFetching,
     isError,
     error,
+    source,
     validationState,
     matchedPlan,
     refetch,
-  } = usePlanRecommendations({
-    operatorId,
-    circleId,
-    rechargeType,
-    typedAmount,
-  })
+  } = externalData ?? hookData
 
   const shouldShow =
     !!operatorId &&
-    !!circleId &&
     ['MOBILE_PREPAID', 'MOBILE_POSTPAID'].includes(rechargeType)
 
   const filteredPlans = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return allPlans
-    return allPlans.filter((p) => {
-      const haystack = [
-        String(p.amount),
-        p.validity,
-        p.description,
-        p.dataAmount,
-      ]
+    return allPlans.filter((p) =>
+      [String(p.amount), p.validity, p.description, p.dataAmount]
         .join(' ')
         .toLowerCase()
-      return haystack.includes(q)
-    })
+        .includes(q)
+    )
   }, [allPlans, search])
 
   const handleClearSearch = useCallback(() => setSearch(''), [])
 
   if (!shouldShow) return null
 
-  
   if (isLoading) {
     return (
       <Card>
@@ -186,7 +165,6 @@ export default function PlanRecommendations({
     )
   }
 
-  
   if (isError) {
     return (
       <Card>
@@ -194,7 +172,7 @@ export default function PlanRecommendations({
         <div className="flex flex-col items-center justify-center py-8 text-center gap-3">
           <XCircle size={32} className="text-[#DC2626]" />
           <p className="text-sm text-[#475569]">
-            {error || 'Failed to load plans. Please try again.'}
+            {error || 'Unable to load recharge plans.'}
           </p>
           <button
             type="button"
@@ -209,19 +187,14 @@ export default function PlanRecommendations({
     )
   }
 
-  
   if (!isLoading && allPlans.length === 0) {
     return (
       <Card>
         <CardHeader title="Recharge Plans" icon={<LayoutGrid size={16} />} />
         <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
           <LayoutGrid size={32} className="text-[#CBD5E1]" />
-          <p className="text-sm font-medium text-[#475569]">
-            No recharge plans available
-          </p>
-          <p className="text-xs text-[#94A3B8]">
-            No plans found for this operator and circle.
-          </p>
+          <p className="text-sm font-medium text-[#475569]">No recharge plans available</p>
+          <p className="text-xs text-[#94A3B8]">No plans found for this operator.</p>
         </div>
       </Card>
     )
@@ -234,41 +207,47 @@ export default function PlanRecommendations({
         icon={<LayoutGrid size={16} />}
         subtitle={`${allPlans.length} plans available`}
         action={
-          isFetching ? (
-            <span className="flex items-center gap-1 text-[10px] text-[#94A3B8]">
-              <RefreshCw size={11} className="animate-spin" />
-              Refreshing
-            </span>
-          ) : null
+          <div className="flex items-center gap-2">
+            {source && (
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                source === 'mrobotics'
+                  ? 'bg-[#DCFCE7] text-[#16A34A]'
+                  : source === 'cache'
+                  ? 'bg-[#DBEAFE] text-[#2563EB]'
+                  : 'bg-[#F1F5F9] text-[#64748B]'
+              }`}>
+                {source === 'mrobotics' ? '⚡ Live' : source === 'cache' ? '⚡ Cached' : '🗄 DB'}
+              </span>
+            )}
+            {isFetching && (
+              <span className="flex items-center gap-1 text-[10px] text-[#94A3B8]">
+                <RefreshCw size={11} className="animate-spin" />
+                Refreshing
+              </span>
+            )}
+          </div>
         }
       />
 
       <div className="space-y-4">
-        {/* ── Validation banner ─────────────────────────────────────── */}
         <ValidationBanner
           validationState={validationState}
           matchedPlan={matchedPlan}
           typedAmount={typedAmount}
         />
 
-        {/* ── Popular plans ─────────────────────────────────────────── */}
         {popularPlans.length > 0 && (
           <div>
             <div className="flex items-center gap-1.5 mb-2">
               <Flame size={13} className="text-[#F59E0B]" />
-              <span className="text-xs font-semibold text-[#0F172A]">
-                Popular Plans
-              </span>
+              <span className="text-xs font-semibold text-[#0F172A]">Popular Plans</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {popularPlans.map((plan, idx) => (
                 <PopularPill
                   key={plan._id ?? `pop-${idx}`}
                   plan={plan}
-                  isSelected={
-                    selectedPlan &&
-                    Number(selectedPlan.amount) === Number(plan.amount)
-                  }
+                  isSelected={selectedPlan && Number(selectedPlan.amount) === Number(plan.amount)}
                   onSelect={onSelectPlan}
                 />
               ))}
@@ -276,12 +255,8 @@ export default function PlanRecommendations({
           </div>
         )}
 
-        {/* ── Search ────────────────────────────────────────────────── */}
         <div className="relative">
-          <Search
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8] pointer-events-none"
-          />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8] pointer-events-none" />
           <input
             type="text"
             value={search}
@@ -294,24 +269,18 @@ export default function PlanRecommendations({
               type="button"
               onClick={handleClearSearch}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#475569]"
-              aria-label="Clear search"
             >
               <XCircle size={14} />
             </button>
           )}
         </div>
 
-        {/* ── Plan grid ─────────────────────────────────────────────── */}
         {filteredPlans.length === 0 ? (
           <div className="py-8 text-center">
             <p className="text-sm text-[#475569]">
               No plans match <span className="font-medium">"{search}"</span>
             </p>
-            <button
-              type="button"
-              onClick={handleClearSearch}
-              className="mt-1.5 text-xs text-[#2563EB] hover:underline"
-            >
+            <button type="button" onClick={handleClearSearch} className="mt-1.5 text-xs text-[#2563EB] hover:underline">
               Clear search
             </button>
           </div>
@@ -321,10 +290,7 @@ export default function PlanRecommendations({
               <PlanCard
                 key={plan._id ?? `plan-${idx}`}
                 plan={plan}
-                isSelected={
-                  selectedPlan &&
-                  Number(selectedPlan.amount) === Number(plan.amount)
-                }
+                isSelected={selectedPlan && Number(selectedPlan.amount) === Number(plan.amount)}
                 onSelect={onSelectPlan}
               />
             ))}

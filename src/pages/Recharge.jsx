@@ -16,11 +16,13 @@ import StatusBadge from '@/components/ui/StatusBadge'
 import { TableSkeleton } from '@/components/ui/LoadingSpinner'
 import Pagination from '@/components/ui/Pagination'
 import EmptyState from '@/components/ui/EmptyState'
+import PlanRecommendations from '@/components/recharge/PlanRecommendations'
 import { formatCurrency, formatDateTime, extractError } from '@/utils/format'
 import { RECHARGE_TYPES } from '@/utils/constants'
 import { useSocket } from '@/hooks/useSocket'
 import { useIsReady } from '@/hooks/useIsReady'
 import { useDetectOperator } from '@/hooks/useDetectOperator'
+import { useOperatorPlans } from '@/hooks/useOperatorPlans'
 
 const schema = z.object({
   mobileNumber: z
@@ -60,6 +62,7 @@ export default function Recharge() {
   const operatorId = watch('operatorId')
   const circleId = watch('circleId')
   const mobileNumber = watch('mobileNumber')
+  const typedAmount = watch('amount')
 
   const { data: wallet } = useQuery({
     queryKey: ['wallet', 'me'],
@@ -94,16 +97,11 @@ export default function Recharge() {
     enabled: ready,
   })
 
-  const { data: plans = [] } = useQuery({
-    queryKey: ['plans', operatorId, circleId],
-    queryFn: () => operatorsApi.getPlansByOperator(operatorId, circleId),
-    select: (r) => {
-      const d = r.data.data
-      if (Array.isArray(d)) return d
-      if (Array.isArray(d?.items)) return d.items
-      return []
-    },
-    enabled: ready && !!operatorId && !!circleId,
+  const plansData = useOperatorPlans({
+    operatorId: ready ? operatorId : null,
+    circleId,
+    rechargeType,
+    typedAmount,
   })
 
   const { data: txnsData, isLoading: txnsLoading } = useQuery({
@@ -121,14 +119,14 @@ export default function Recharge() {
 
   const { detecting, detectedOperator, reset: resetDetect } = useDetectOperator(
     mobileNumber,
-    rechargeType
+    rechargeType,
   )
 
   useEffect(() => {
     if (!detectedOperator) return
     if (detectedOperator.operatorCode) {
       const matched = operators.find(
-        (o) => o.code?.toUpperCase() === detectedOperator.operatorCode?.toUpperCase()
+        (o) => o.code?.toUpperCase() === detectedOperator.operatorCode?.toUpperCase(),
       )
       if (matched) {
         setValue('operatorId', matched._id)
@@ -137,7 +135,7 @@ export default function Recharge() {
     }
     if (detectedOperator.circleCode) {
       const matchedCircle = circles.find(
-        (c) => c.code?.toUpperCase() === detectedOperator.circleCode?.toUpperCase()
+        (c) => c.code?.toUpperCase() === detectedOperator.circleCode?.toUpperCase(),
       )
       if (matchedCircle) setValue('circleId', matchedCircle._id)
     }
@@ -145,7 +143,7 @@ export default function Recharge() {
 
   useEffect(() => {
     setSelectedPlan(null)
-  }, [operatorId, circleId])
+  }, [operatorId])
 
   useSocket({
     'recharge:update': () => {
@@ -154,7 +152,7 @@ export default function Recharge() {
     'recharge:success': (payload) => {
       const txn = payload?.transaction
       setLastTxn((prev) =>
-        prev?.txnId === txn?.txnId ? { ...prev, status: 'SUCCESS' } : prev
+        prev?.txnId === txn?.txnId ? { ...prev, status: 'SUCCESS' } : prev,
       )
       toast.success('Recharge successful!')
       queryClient.invalidateQueries({ queryKey: ['recharge', 'my'] })
@@ -162,11 +160,10 @@ export default function Recharge() {
     },
     'recharge:failed': (payload) => {
       const txn = payload?.transaction
-      const msg = txn?.providerMessage || 'Recharge failed'
       setLastTxn((prev) =>
-        prev?.txnId === txn?.txnId ? { ...prev, status: 'FAILED' } : prev
+        prev?.txnId === txn?.txnId ? { ...prev, status: 'FAILED' } : prev,
       )
-      toast.error(msg, { duration: 6000 })
+      toast.error(txn?.providerMessage || 'Recharge failed', { duration: 6000 })
       queryClient.invalidateQueries({ queryKey: ['recharge', 'my'] })
     },
   })
@@ -176,11 +173,7 @@ export default function Recharge() {
     onSuccess: (res) => {
       const txn = res.data.data?.transaction || res.data.data
       setLastTxn(txn)
-
       const status = txn?.status
-      const apiMessage = res.data?.message || ''
-      const providerMessage = txn?.providerMessage || ''
-
       if (status === 'SUCCESS') {
         toast.success('Recharge successful!')
         reset({ type: 'MOBILE_PREPAID' })
@@ -188,13 +181,12 @@ export default function Recharge() {
         setAutoDetectedId(null)
         resetDetect()
       } else if (status === 'FAILED') {
-        toast.error(providerMessage || apiMessage || 'Recharge failed', { duration: 6000 })
-      } else if (status === 'PENDING' || status === 'PROCESSING' || status === 'INITIATED') {
+        toast.error(txn?.providerMessage || res.data?.message || 'Recharge failed', { duration: 6000 })
+      } else if (['PENDING', 'PROCESSING', 'INITIATED'].includes(status)) {
         toast('Recharge is being processed…', { icon: '⏳', duration: 5000 })
       } else {
-        toast(apiMessage || 'Recharge initiated', { icon: '📡' })
+        toast(res.data?.message || 'Recharge initiated', { icon: '📡' })
       }
-
       queryClient.invalidateQueries({ queryKey: ['recharge', 'my'] })
       queryClient.invalidateQueries({ queryKey: ['wallet', 'me'] })
     },
@@ -282,6 +274,8 @@ export default function Recharge() {
                   {...register('operatorId')}
                   onChange={(e) => {
                     setValue('operatorId', e.target.value)
+                    setValue('amount', '')
+                    setSelectedPlan(null)
                     if (autoDetectedId && e.target.value !== autoDetectedId) {
                       setAutoDetectedId(null)
                     }
@@ -311,6 +305,12 @@ export default function Recharge() {
                 error={errors.amount?.message}
                 required
                 {...register('amount')}
+                onChange={(e) => {
+                  register('amount').onChange(e)
+                  if (selectedPlan && String(selectedPlan.amount) !== e.target.value) {
+                    setSelectedPlan(null)
+                  }
+                }}
               />
 
               {selectedPlan && (
@@ -318,7 +318,8 @@ export default function Recharge() {
                   <CheckCircle size={12} />
                   <span>
                     {selectedPlan.description ? `${selectedPlan.description} — ` : ''}
-                    {selectedPlan.validity ? `Valid ${selectedPlan.validity} days` : ''}
+                    {selectedPlan.validity ? `Valid ${selectedPlan.validity}` : ''}
+                    {selectedPlan.dataAmount ? ` · ${selectedPlan.dataAmount}` : ''}
                   </span>
                 </div>
               )}
@@ -361,30 +362,15 @@ export default function Recharge() {
         </div>
 
         <div className="lg:col-span-2 space-y-4">
-          {plans.length > 0 && (
-            <Card>
-              <CardHeader title="Available Plans" />
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {plans.map((plan) => (
-                  <button
-                    key={plan._id}
-                    onClick={() => applyPlan(plan)}
-                    className="p-3 border border-[#E2E8F0] rounded-lg hover:border-[#2563EB] hover:bg-[#DBEAFE] transition-colors text-left group"
-                  >
-                    <p className="text-sm font-bold font-mono text-[#0F172A] group-hover:text-[#2563EB]">
-                      ₹{plan.amount}
-                    </p>
-                    <p className="text-xs text-[#94A3B8] mt-0.5 line-clamp-2">
-                      {plan.description}
-                    </p>
-                    {plan.validity && (
-                      <p className="text-[10px] text-[#2563EB] mt-1">{plan.validity} days</p>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </Card>
-          )}
+          <PlanRecommendations
+            operatorId={operatorId}
+            circleId={circleId}
+            rechargeType={rechargeType}
+            typedAmount={typedAmount}
+            selectedPlan={selectedPlan}
+            onSelectPlan={applyPlan}
+            externalData={plansData}
+          />
 
           <Card padding={false}>
             <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">

@@ -32,8 +32,8 @@ export function usePlanRecommendations({
       }
     },
     enabled,
-    staleTime: 14 * 60 * 1000,   
-    gcTime: 20 * 60 * 1000,      
+    staleTime: 4 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     retry: 1,
   })
 

@@ -31,6 +31,7 @@ import AdminRecharge from '@/pages/admin/AdminRecharge'
 import Users from '@/pages/admin/Users'
 import Operators from '@/pages/admin/Operators'
 import OperatorPlans from '@/pages/admin/OperatorPlans'
+import OperatorsPlans from '@/pages/retailer/OperatorsPlans'
 import Settings from '@/pages/admin/Settings'
 import Logs from '@/pages/admin/Logs'
 import Provider from '@/pages/admin/Provider'
@@ -192,6 +193,7 @@ export default function App() {
                     <Route path="/api-keys" element={<ApiKeys />} />
                     <Route path="/api-docs" element={<ApiDocs />} />
                     <Route path="/profile" element={<Profile />} />
+                    <Route path="/operators" element={<OperatorsPlans />} />
 
                     <Route element={<AdminRoute />}>
                       <Route path="/admin/wallet" element={<AdminWallet />} />
