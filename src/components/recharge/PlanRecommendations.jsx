@@ -207,25 +207,12 @@ export default function PlanRecommendations({
         icon={<LayoutGrid size={16} />}
         subtitle={`${allPlans.length} plans available`}
         action={
-          <div className="flex items-center gap-2">
-            {source && (
-              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                source === 'mrobotics'
-                  ? 'bg-[#DCFCE7] text-[#16A34A]'
-                  : source === 'cache'
-                  ? 'bg-[#DBEAFE] text-[#2563EB]'
-                  : 'bg-[#F1F5F9] text-[#64748B]'
-              }`}>
-                {source === 'mrobotics' ? '⚡ Live' : source === 'cache' ? '⚡ Cached' : '🗄 DB'}
-              </span>
-            )}
-            {isFetching && (
-              <span className="flex items-center gap-1 text-[10px] text-[#94A3B8]">
-                <RefreshCw size={11} className="animate-spin" />
-                Refreshing
-              </span>
-            )}
-          </div>
+          isFetching ? (
+            <span className="flex items-center gap-1 text-[10px] text-[#94A3B8]">
+              <RefreshCw size={11} className="animate-spin" />
+              Refreshing
+            </span>
+          ) : null
         }
       />
 
