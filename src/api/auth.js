@@ -2,7 +2,6 @@ import api from '@/lib/axios'
 
 export const authApi = {
   login: (data) => api.post('/auth/login', data),
-  register: (data) => api.post('/auth/register', data),
   logout: () => api.post('/auth/logout'),
   logoutAll: () => api.post('/auth/logout-all'),
   refreshToken: (refreshToken) =>
