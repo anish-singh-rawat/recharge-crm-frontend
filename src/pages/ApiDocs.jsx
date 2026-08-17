@@ -6,7 +6,7 @@ import { useIsReady } from '@/hooks/useIsReady'
 import Card, { CardHeader } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 
-const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1').replace(/\/$/, '')
+const BASE_URL = (import.meta.env.VITE_API_URL || 'https://api.rechpays.in/api/v1').replace(/\/$/, '')
 const EXT_BASE = `${BASE_URL}/ext`
 
 function useCopy() {

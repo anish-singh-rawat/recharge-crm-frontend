@@ -7,7 +7,7 @@ APIs present in the backend but not covered in `docs/integration.md`.
 ## Base URL
 
 ```
-Development:  http://localhost:8080/api/v1
+Development:  https://api.rechpays.in/api/v1
 Production:   https://your-domain.com/api/v1
 ```
 
@@ -1261,7 +1261,7 @@ Response: `{ "success": true, "message": "Notification deleted", "data": {} }`
 
 Example:
 ```
-GET http://localhost:8080/uploads/1785678746786-76b0368c5230fc.jpeg
+GET https://api.rechpays.in/uploads/1785678746786-76b0368c5230fc.jpeg
 ```
 
 The `avatar` field returned by all user APIs (profile, user list, etc.) contains this full URL already. You do not need to construct it manually.
@@ -1271,7 +1271,7 @@ Example user object with avatar:
 {
   "_id": "...",
   "name": "Rahul Sharma",
-  "avatar": "http://localhost:8080/uploads/1785678746786-76b0368c5230fc.jpeg"
+  "avatar": "https://api.rechpays.in/uploads/1785678746786-76b0368c5230fc.jpeg"
 }
 ```
 
@@ -1409,7 +1409,7 @@ The integration doc lists events but omits connection details, rooms, and the ad
 ```javascript
 import { io } from 'socket.io-client';
 
-const socket = io('http://localhost:8080', {
+const socket = io('https://api.rechpays.in', {
   auth: { token: accessToken },
   transports: ['websocket', 'polling'],
 });
@@ -1417,7 +1417,7 @@ const socket = io('http://localhost:8080', {
 
 The token can also be sent via the `Authorization` header:
 ```javascript
-const socket = io('http://localhost:8080', {
+const socket = io('https://api.rechpays.in', {
   extraHeaders: { Authorization: `Bearer ${accessToken}` },
 });
 ```
@@ -2119,7 +2119,7 @@ The full user object returned by all user-related APIs (profile, user list, etc.
   "role": "retailer",
   "roleRef": null,
   "permissions": [],
-  "avatar": "http://localhost:8080/uploads/filename.jpg",
+  "avatar": "https://api.rechpays.in/uploads/filename.jpg",
   "address": {
     "street": "123 Main St",
     "city": "Mumbai",

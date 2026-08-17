@@ -6,14 +6,14 @@
 
 Import this file into Postman to get every endpoint with correct request bodies, auto-capture scripts, and collection variables pre-wired.
 
-Live interactive Swagger UI (when server is running): `http://localhost:8080/api-docs`
+Live interactive Swagger UI (when server is running): `https://api.rechpays.in/api-docs`
 
 ---
 
 ## Base URL
 
 ```
-Development:  http://localhost:8080/api/v1
+Development:  https://api.rechpays.in/api/v1
 Production:   https://your-domain.com/api/v1
 ```
 
@@ -469,7 +469,7 @@ Connect to the WebSocket server at the same base URL.
 ```javascript
 import { io } from 'socket.io-client';
 
-const socket = io('http://localhost:8080', {
+const socket = io('https://api.rechpays.in', {
   auth: { token: '<accessToken>' }
 });
 ```

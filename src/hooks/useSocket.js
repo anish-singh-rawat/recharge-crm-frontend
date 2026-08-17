@@ -3,7 +3,7 @@ import { io } from 'socket.io-client'
 import { getAccessToken } from '@/lib/axios'
 import useAuthStore from '@/store/authStore'
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8080'
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://api.rechpays.in'
 
 let socketInstance = null
 
@@ -35,7 +35,7 @@ export const useSocket = (handlers = {}) => {
             const refreshToken = localStorage.getItem('refreshToken')
             if (!refreshToken) return
             const { default: axios } = await import('axios')
-            const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
+            const BASE_URL = import.meta.env.VITE_API_URL || 'https://api.rechpays.in/api/v1'
             const res = await axios.post(`${BASE_URL}/auth/refresh-token`, { refreshToken })
             const newToken = res.data?.data?.accessToken
             if (newToken && socketInstance) {

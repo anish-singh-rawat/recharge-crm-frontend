@@ -23,5 +23,3 @@ node_modules
 *.sln
 *.sw?
 .Kiro
-
-dist

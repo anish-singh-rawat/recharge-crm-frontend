@@ -1,12 +1,12 @@
 {
   "info": {
     "name": "Recharge CRM API",
-    "description": "Complete Postman collection for Recharge CRM Backend. Base URL: {{baseUrl}}. Set environment variable baseUrl=http://localhost:8080/api/v1",
+    "description": "Complete Postman collection for Recharge CRM Backend. Base URL: {{baseUrl}}. Set environment variable baseUrl=https://api.rechpays.in/api/v1",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "recharge-crm-v1"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:8080/api/v1", "type": "string" },
+    { "key": "baseUrl", "value": "https://api.rechpays.in/api/v1", "type": "string" },
     { "key": "accessToken", "value": "", "type": "string" },
     { "key": "refreshToken", "value": "", "type": "string" },
     { "key": "userId", "value": "", "type": "string" },
