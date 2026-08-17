@@ -1809,7 +1809,7 @@ This is useful for support: when a user reports an issue, the frontend can log t
 
 ## 24. CORS Configuration
 
-Allowed origins are set via the `ALLOWED_ORIGINS` environment variable (comma-separated). The default is `http://localhost:5173`.
+Allowed origins are set via the `ALLOWED_ORIGINS` environment variable (comma-separated). The default is `https://rechpays.in`.
 
 Allowed headers:
 ```

@@ -30,7 +30,7 @@ Password: Admin@12345
 
 ## STEP 1 — Super Admin / Admin Login
 
-**URL:** `http://localhost:5173/login`
+**URL:** `https://rechpays.in/login`
 
 1. Phone number ya email daalo: `9000000000`
 2. Password daalo: `Admin@12345`
@@ -43,7 +43,7 @@ Password: Admin@12345
 
 ## STEP 2 — Retailer Account Banana (Admin karta hai)
 
-**URL:** `http://localhost:5173/admin/users`
+**URL:** `https://rechpays.in/admin/users`
 
 Jab bhi koi naya shopkeeper ya distributor system join kare, Admin uska account banata hai.
 
@@ -67,7 +67,7 @@ Jab bhi koi naya shopkeeper ya distributor system join kare, Admin uska account 
 
 ## STEP 3 — Retailer Ki Wallet Mein Paisa Dalna (Credit)
 
-**URL:** `http://localhost:5173/admin/wallet`
+**URL:** `https://rechpays.in/admin/wallet`
 
 Retailer recharge karne ke liye uski wallet mein pehle balance hona chahiye. Admin hi balance dalta hai.
 
@@ -82,13 +82,13 @@ Retailer recharge karne ke liye uski wallet mein pehle balance hona chahiye. Adm
 5. **Credit** button click karo
 6. Success toast aayega — retailer ki wallet mein balance aa gaya
 
-**Verification:** Retailer apni wallet `http://localhost:5173/wallet` par dekh sakta hai.
+**Verification:** Retailer apni wallet `https://rechpays.in/wallet` par dekh sakta hai.
 
 ---
 
 ## STEP 4 — Retailer Login Karna
 
-**URL:** `http://localhost:5173/login`
+**URL:** `https://rechpays.in/login`
 
 Retailer apna account khud bhi bana sakta hai ya Admin ne jo account banaya usse login kare:
 
@@ -101,7 +101,7 @@ Retailer apna account khud bhi bana sakta hai ya Admin ne jo account banaya usse
 
 ## STEP 5 — Mobile Recharge Karna (Retailer)
 
-**URL:** `http://localhost:5173/recharge`
+**URL:** `https://rechpays.in/recharge`
 
 Yahi main kaam hai retailer ka — customers ke liye recharge karna.
 
@@ -152,7 +152,7 @@ Recharge page par hi neeche **My Transactions** table hai:
 
 ## STEP 7 — Apna Wallet Statement Dekhna (Retailer)
 
-**URL:** `http://localhost:5173/wallet`
+**URL:** `https://rechpays.in/wallet`
 
 - Top mein current **balance** dikhta hai
 - Total **Credit** aur total **Debit** summary
@@ -163,7 +163,7 @@ Recharge page par hi neeche **My Transactions** table hai:
 
 ## STEP 8 — Apni Reports Dekhna (Retailer)
 
-**URL:** `http://localhost:5173/reports`
+**URL:** `https://rechpays.in/reports`
 
 - Date range select karo (default last 30 days)
 - **My Recharge Summary**: Total transactions, amount, success/fail count
@@ -177,7 +177,7 @@ Recharge page par hi neeche **My Transactions** table hai:
 
 ## Admin — Sab Transactions Dekhna
 
-**URL:** `http://localhost:5173/admin/recharge`
+**URL:** `https://rechpays.in/admin/recharge`
 
 Sab retailers ke sab recharge transactions ek jagah:
 
@@ -191,7 +191,7 @@ Sab retailers ke sab recharge transactions ek jagah:
 
 ## Admin — Wallet Management
 
-**URL:** `http://localhost:5173/admin/wallet`
+**URL:** `https://rechpays.in/admin/wallet`
 
 **Retailer wallet dhundho:**
 1. Search box mein naam ya phone daalo
@@ -209,7 +209,7 @@ Niche table mein sab users ke sab wallet transactions dikhte hain — CREDIT, DE
 
 ## Admin — Operators Manage Karna
 
-**URL:** `http://localhost:5173/admin/operators`
+**URL:** `https://rechpays.in/admin/operators`
 
 **Operators Tab:**
 - **Add Operator**: Naam, Code (AIRTEL), Type (Mobile Prepaid), Min/Max amount, Commission %
@@ -225,7 +225,7 @@ Niche table mein sab users ke sab wallet transactions dikhte hain — CREDIT, DE
 
 ## Admin — Users Manage Karna
 
-**URL:** `http://localhost:5173/admin/users`
+**URL:** `https://rechpays.in/admin/users`
 
 - **Search**: Name ya phone se filter
 - **Role filter**: Retailer, Admin, Super Admin
@@ -239,7 +239,7 @@ Niche table mein sab users ke sab wallet transactions dikhte hain — CREDIT, DE
 
 ## Admin — Reports
 
-**URL:** `http://localhost:5173/reports`
+**URL:** `https://rechpays.in/reports`
 
 4 tabs:
 
@@ -263,7 +263,7 @@ Niche table mein sab users ke sab wallet transactions dikhte hain — CREDIT, DE
 
 ## Admin — Provider (MRobotics)
 
-**URL:** `http://localhost:5173/admin/provider`
+**URL:** `https://rechpays.in/admin/provider`
 
 - **Live Balance**: MRobotics API se current balance (Refresh button se update)
 - **Operators**: Provider ke registered operators
@@ -274,7 +274,7 @@ Niche table mein sab users ke sab wallet transactions dikhte hain — CREDIT, DE
 
 ## Admin — Settings
 
-**URL:** `http://localhost:5173/admin/settings`
+**URL:** `https://rechpays.in/admin/settings`
 
 Important settings:
 
@@ -293,7 +293,7 @@ Important settings:
 
 ## Admin — Logs
 
-**URL:** `http://localhost:5173/admin/logs`
+**URL:** `https://rechpays.in/admin/logs`
 
 3 tabs:
 
@@ -313,7 +313,7 @@ Important settings:
 
 ## Notifications
 
-**URL:** `http://localhost:5173/notifications`
+**URL:** `https://rechpays.in/notifications`
 
 **Retailers:**
 - Recharge success/fail, wallet credit/debit, account lock, password change — sab notifications yahan
@@ -328,7 +328,7 @@ Important settings:
 
 ## API Keys
 
-**URL:** `http://localhost:5173/api-keys`
+**URL:** `https://rechpays.in/api-keys`
 
 Agar programmatically recharge karna ho (third-party integration):
 
@@ -342,7 +342,7 @@ Agar programmatically recharge karna ho (third-party integration):
 
 ## Profile
 
-**URL:** `http://localhost:5173/profile`
+**URL:** `https://rechpays.in/profile`
 
 - **Avatar change**: Camera icon click karo
 - **Profile edit**: Name, business, GST, PAN, address
