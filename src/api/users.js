@@ -8,4 +8,5 @@ export const usersApi = {
   deleteUser: (id) => api.delete(`/users/${id}`),
   blockUser: (id, reason) => api.patch(`/users/${id}/block`, { reason }),
   unblockUser: (id) => api.patch(`/users/${id}/unblock`),
+  toggleApiAccess: (id) => api.patch(`/users/${id}/api-access`),
 }

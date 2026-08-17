@@ -23,26 +23,9 @@ import { disconnectSocket } from '@/hooks/useSocket'
 import toast from 'react-hot-toast'
 import { getInitials } from '@/utils/format'
 
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'super_admin', 'retailer'] },
-  { to: '/recharge', label: 'Recharge', icon: Zap, roles: ['retailer'] },
-  { to: '/wallet', label: 'Wallet', icon: Wallet, roles: ['retailer'] },
-  { to: '/admin/wallet', label: 'Wallet', icon: Wallet, roles: ['admin', 'super_admin'] },
-  { to: '/admin/recharge', label: 'Transactions', icon: Zap, roles: ['admin', 'super_admin'] },
-  { to: '/admin/users', label: 'Users', icon: Users, roles: ['admin', 'super_admin'] },
-  { to: '/admin/operators', label: 'Operators', icon: Building2, roles: ['admin', 'super_admin'] },
-  { to: '/operators', label: 'Operators & Plans', icon: Building2, roles: ['retailer'] },
-  { to: '/reports', label: 'Reports', icon: BarChart2, roles: ['admin', 'super_admin', 'retailer'] },
-  { to: '/notifications', label: 'Notifications', icon: Bell, roles: ['admin', 'super_admin', 'retailer'] },
-  { to: '/api-keys', label: 'API Keys', icon: Key, roles: ['admin', 'super_admin', 'retailer'] },
-  { to: '/api-docs', label: 'API Docs', icon: BookOpen, roles: ['admin', 'super_admin', 'retailer'] },
-  { to: '/admin/logs', label: 'Logs', icon: FileText, roles: ['admin', 'super_admin'] },
-  { to: '/admin/provider', label: 'Provider', icon: Wifi, roles: ['admin', 'super_admin'] },
-  { to: '/admin/settings', label: 'Settings', icon: Settings, roles: ['admin', 'super_admin'] },
-]
-
 export default function Sidebar({ collapsed, onToggle, unreadCount = 0 }) {
-  const { user, logout } = useAuthStore()
+  const { user, logout, hasApiAccess } = useAuthStore()
+  const apiAccess = hasApiAccess()
 
   const handleLogout = async () => {
     try {
@@ -53,7 +36,30 @@ export default function Sidebar({ collapsed, onToggle, unreadCount = 0 }) {
   }
 
   const role = user?.role || ''
-  const visibleItems = navItems.filter((item) => item.roles.includes(role))
+
+  const allNavItems = [
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'super_admin', 'retailer'] },
+    { to: '/recharge', label: 'Recharge', icon: Zap, roles: ['retailer'] },
+    { to: '/wallet', label: 'Wallet', icon: Wallet, roles: ['retailer'] },
+    { to: '/admin/wallet', label: 'Wallet', icon: Wallet, roles: ['admin', 'super_admin'] },
+    { to: '/admin/recharge', label: 'Transactions', icon: Zap, roles: ['admin', 'super_admin'] },
+    { to: '/admin/users', label: 'Users', icon: Users, roles: ['admin', 'super_admin'] },
+    { to: '/admin/operators', label: 'Operators', icon: Building2, roles: ['admin', 'super_admin'] },
+    { to: '/operators', label: 'Operators & Plans', icon: Building2, roles: ['retailer'] },
+    { to: '/reports', label: 'Reports', icon: BarChart2, roles: ['admin', 'super_admin', 'retailer'] },
+    { to: '/notifications', label: 'Notifications', icon: Bell, roles: ['admin', 'super_admin', 'retailer'] },
+    { to: '/api-keys', label: 'API Keys', icon: Key, roles: ['admin', 'super_admin', 'retailer'], requireApiAccess: true },
+    { to: '/api-docs', label: 'API Docs', icon: BookOpen, roles: ['admin', 'super_admin', 'retailer'], requireApiAccess: true },
+    { to: '/admin/logs', label: 'Logs', icon: FileText, roles: ['admin', 'super_admin'] },
+    { to: '/admin/provider', label: 'Provider', icon: Wifi, roles: ['admin', 'super_admin'] },
+    { to: '/admin/settings', label: 'Settings', icon: Settings, roles: ['admin', 'super_admin'] },
+  ]
+
+  const visibleItems = allNavItems.filter((item) => {
+    if (!item.roles.includes(role)) return false
+    if (item.requireApiAccess && !apiAccess) return false
+    return true
+  })
 
   return (
     <aside
@@ -68,7 +74,7 @@ export default function Sidebar({ collapsed, onToggle, unreadCount = 0 }) {
             <div className="w-7 h-7 rounded-lg bg-[#2563EB] flex items-center justify-center shrink-0">
               <Zap size={14} className="text-white" />
             </div>
-            <span className="text-white font-bold text-sm truncate">RechargeCRM</span>
+            <span className="text-white font-bold text-sm truncate">rechpays</span>
           </div>
         )}
         {collapsed && (

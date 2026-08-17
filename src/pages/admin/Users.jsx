@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { UserPlus, Search, Ban, CheckCircle, Trash2, Eye, Pencil } from 'lucide-react'
+import { UserPlus, Search, Ban, CheckCircle, Trash2, Eye, Pencil, ToggleLeft, ToggleRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { usersApi } from '@/api/users'
 import Card, { CardHeader } from '@/components/ui/Card'
@@ -156,11 +156,11 @@ function EditUserModal({ open, onClose, user }) {
     resolver: zodResolver(editSchema),
     values: user
       ? {
-          name: user.name || '',
-          businessName: user.businessName || '',
-          gstNumber: user.gstNumber || '',
-          panNumber: user.panNumber || '',
-        }
+        name: user.name || '',
+        businessName: user.businessName || '',
+        gstNumber: user.gstNumber || '',
+        panNumber: user.panNumber || '',
+      }
       : {},
   })
 
@@ -214,6 +214,7 @@ export default function Users() {
   const [deleteModal, setDeleteModal] = useState(null)
   const [blockReason, setBlockReason] = useState('')
   const [viewUser, setViewUser] = useState(null)
+  const [apiAccessState, setApiAccessState] = useState({});
 
   const { data, isLoading } = useQuery({
     queryKey: ['users', { page, search, role: roleFilter }],
@@ -257,6 +258,58 @@ export default function Users() {
     },
     onError: (err) => toast.error(extractError(err)),
   })
+
+  const apiAccessMutation = useMutation({
+    mutationFn: (id) => usersApi.toggleApiAccess(id),
+
+    onMutate: async (userId) => {
+      const currentUser = data?.users?.find(
+        (user) => user._id === userId
+      );
+
+      const currentValue =
+        apiAccessState[userId] ??
+        currentUser?.apiAccessEnabled ??
+        false;
+
+      setApiAccessState((prev) => ({
+        ...prev,
+        [userId]: !currentValue,
+      }));
+
+      return {
+        previousValue: currentValue,
+      };
+    },
+
+    onSuccess: (res, userId, context) => {
+      const updatedValue =
+        res.data?.data?.apiAccessEnabled ??
+        !context.previousValue;
+
+      setApiAccessState((prev) => ({
+        ...prev,
+        [userId]: updatedValue,
+      }));
+
+      toast.success(
+        res.data?.message || 'API access updated'
+      );
+
+      queryClient.invalidateQueries({
+        queryKey: ['users'],
+      });
+    },
+
+    onError: (err, userId, context) => {
+      setApiAccessState((prev) => ({
+        ...prev,
+        [userId]: context?.previousValue ?? false,
+      }));
+      toast.error(extractError(err));
+    },
+  });
+
 
   return (
     <div className="space-y-6">
@@ -314,7 +367,7 @@ export default function Users() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-                    {['User', 'Phone', 'Role', 'Business', 'Status', 'Created', 'Actions'].map(
+                    {['User', 'Phone', 'Role', 'Business', 'Status', 'API Access', 'Created', 'Actions'].map(
                       (h) => (
                         <th
                           key={h}
@@ -350,8 +403,8 @@ export default function Users() {
                             user.role === 'super_admin'
                               ? 'purple'
                               : user.role === 'admin'
-                              ? 'primary'
-                              : 'default'
+                                ? 'primary'
+                                : 'default'
                           }
                         >
                           {user.role?.replace('_', ' ')}
@@ -363,9 +416,73 @@ export default function Users() {
                           {user.isBlocked ? 'Blocked' : 'Active'}
                         </Badge>
                       </td>
+
+                      <td className="px-4 py-3">
+                        {user.role === 'retailer' ? (
+                          (() => {
+                            const isApiEnabled =
+                              apiAccessState[user._id] ??
+                              user.apiAccessEnabled ??
+                              false;
+
+                            const isUpdating =
+                              apiAccessMutation.isPending &&
+                              apiAccessMutation.variables === user._id;
+
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!isUpdating) {
+                                    apiAccessMutation.mutate(user._id);
+                                  }
+                                }}
+                                disabled={isUpdating}
+                                title={
+                                  isApiEnabled
+                                    ? 'Disable API Access'
+                                    : 'Enable API Access'
+                                }
+                                className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${isUpdating
+                                  ? 'opacity-50 cursor-not-allowed'
+                                  : 'cursor-pointer'
+                                  }`}
+                              >
+                                {isApiEnabled ? (
+                                  <>
+                                    <ToggleRight
+                                      size={20}
+                                      className="text-[#16A34A]"
+                                    />
+                                    <span className="text-[#16A34A]">
+                                      On
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <ToggleLeft
+                                      size={20}
+                                      className="text-[#94A3B8]"
+                                    />
+                                    <span className="text-[#94A3B8]">
+                                      Off
+                                    </span>
+                                  </>
+                                )}
+                              </button>
+                            );
+                          })()
+                        ) : (
+                          <span className="text-xs text-[#94A3B8]">
+                            N/A
+                          </span>
+                        )}
+                      </td>
+
                       <td className="px-4 py-3 text-xs text-[#94A3B8] whitespace-nowrap">
                         {formatDateTime(user.createdAt)}
                       </td>
+
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button

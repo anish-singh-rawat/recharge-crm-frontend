@@ -11,7 +11,7 @@ import { healthApi } from '@/api/health'
 import { setAccessToken } from '@/lib/axios'
 
 import Layout from '@/components/layout/Layout'
-import { ProtectedRoute, AdminRoute, GuestRoute } from '@/components/auth/ProtectedRoute'
+import { ProtectedRoute, AdminRoute, GuestRoute, ApiAccessRoute } from '@/components/auth/ProtectedRoute'
 import ErrorBoundary from '@/components/ui/ErrorBoundary'
 
 import Login from '@/pages/auth/Login'
@@ -115,7 +115,10 @@ function AppInitializer({ children }) {
           profileRes.data
 
         login({
-          user: freshUser,
+          user: {
+            ...freshUser,
+            apiAccessEnabled: freshUser?.apiAccessEnabled ?? false,
+          },
           accessToken,
           refreshToken: newRT || refreshToken,
         })
@@ -190,8 +193,10 @@ export default function App() {
                     <Route path="/wallet" element={<Wallet />} />
                     <Route path="/reports" element={<Reports />} />
                     <Route path="/notifications" element={<Notifications />} />
-                    <Route path="/api-keys" element={<ApiKeys />} />
-                    <Route path="/api-docs" element={<ApiDocs />} />
+                    <Route element={<ApiAccessRoute />}>
+                      <Route path="/api-keys" element={<ApiKeys />} />
+                      <Route path="/api-docs" element={<ApiDocs />} />
+                    </Route>
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/operators" element={<OperatorsPlans />} />
 

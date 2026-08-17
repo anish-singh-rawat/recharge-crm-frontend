@@ -29,3 +29,13 @@ export function GuestRoute() {
   if (isAuthenticated) return <Navigate to="/dashboard" replace />
   return <Outlet />
 }
+
+export function ApiAccessRoute() {
+  const { isAuthenticated, isInitialized, hasApiAccess } = useAuthStore()
+
+  if (!isAuthenticated && !isInitialized) return <PageLoader />
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (!hasApiAccess()) return <Navigate to="/dashboard" replace />
+
+  return <Outlet />
+}

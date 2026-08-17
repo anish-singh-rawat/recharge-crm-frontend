@@ -45,10 +45,14 @@ const useAuthStore = create((set, get) => ({
   login: (data) => {
     const accessToken = data.accessToken
     const refreshToken = data.refreshToken
-    let user = data.user || data.profile || null
+    let user = data.user || null
 
     if (!user && data.data) {
       user = data.data.user || data.data.profile || data.data
+    }
+
+    if (user) {
+      user = { ...user, apiAccessEnabled: user.apiAccessEnabled ?? false }
     }
 
     if (accessToken) setAccessToken(accessToken)
@@ -86,6 +90,13 @@ const useAuthStore = create((set, get) => ({
   isSuperAdmin: () => get().user?.role === 'super_admin',
 
   isRetailer: () => get().user?.role === 'retailer',
+
+  hasApiAccess: () => {
+    const { user } = get()
+    if (!user) return false
+    if (user.role === 'admin' || user.role === 'super_admin') return true
+    return user.apiAccessEnabled === true
+  },
 }))
 
 export default useAuthStore
