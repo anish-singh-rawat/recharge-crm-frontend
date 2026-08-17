@@ -59,7 +59,7 @@ export default function Register() {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#2563EB] mb-3">
             <Zap size={22} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-[#0F172A]">RechargeCRM</h1>
+          <h1 className="text-2xl font-bold text-[#0F172A]">RechPays</h1>
           <p className="text-sm text-[#94A3B8] mt-1">Create your retailer account</p>
         </div>
 

@@ -76,7 +76,7 @@ Response:
   "success": true,
   "message": "Version info",
   "data": {
-    "name": "RechargeCRM",
+    "name": "RechPays",
     "version": "1.0.0",
     "nodeVersion": "v20.11.0",
     "environment": "development",
@@ -2060,9 +2060,9 @@ The backend sends transactional emails automatically. These are not API endpoint
 
 | Trigger | Subject | Recipient | When |
 |---|---|---|---|
-| Registration (`POST /auth/register`) | `Welcome to RechargeCRM` | New user | On successful account creation |
-| Forgot password (`POST /auth/forgot-password`) | `Password Reset Request — RechargeCRM` | User | On reset token generation |
-| Account lockout (5 failed logins) | `Account Temporarily Locked — RechargeCRM` | User | When lockout threshold is hit |
+| Registration (`POST /auth/register`) | `Welcome to RechPays` | New user | On successful account creation |
+| Forgot password (`POST /auth/forgot-password`) | `Password Reset Request — RechPays` | User | On reset token generation |
+| Account lockout (5 failed logins) | `Account Temporarily Locked — RechPays` | User | When lockout threshold is hit |
 
 ### Password reset link format
 
@@ -2083,7 +2083,7 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=your@email.com
 SMTP_PASS=your-app-password
-SMTP_FROM_NAME=RechargeCRM
+SMTP_FROM_NAME=RechPays
 SMTP_FROM_EMAIL=noreply@rechargecrmapp.com
 ```
 

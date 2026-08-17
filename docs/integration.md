@@ -658,7 +658,7 @@ Import into Postman. The collection:
 
 ### Brand Identity
 
-- **Product name:** RechargeCRM
+- **Product name:** RechPays
 - **Tagline:** Fast. Reliable. Profitable.
 - **Tone:** Professional, trustworthy, clean — like a fintech dashboard (not a consumer app)
 - **Inspiration:** Razorpay Dashboard, Paytm for Business, Stripe Dashboard

@@ -1,10 +1,10 @@
-# RechargeCRM — Complete Usage Guide (Hinglish)
+# RechPays — Complete Usage Guide (Hinglish)
 
 ---
 
 ## Application kya hai?
 
-RechargeCRM ek B2B recharge management platform hai. Isme **Super Admin** system ko control karta hai, **Admin** daily operations manage karta hai, aur **Retailers** apne customers ke liye recharges karte hain. Har retailer ka ek wallet hota hai jisme balance hona chahiye recharge karne ke liye.
+RechPays ek B2B recharge management platform hai. Isme **Super Admin** system ko control karta hai, **Admin** daily operations manage karta hai, aur **Retailers** apne customers ke liye recharges karte hain. Har retailer ka ek wallet hota hai jisme balance hona chahiye recharge karne ke liye.
 
 ---
 

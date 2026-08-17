@@ -40,7 +40,7 @@ export default function ForgotPassword() {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#2563EB] mb-3">
             <Zap size={22} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-[#0F172A]">RechargeCRM</h1>
+          <h1 className="text-2xl font-bold text-[#0F172A]">RechPays</h1>
         </div>
 
         <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-6">
