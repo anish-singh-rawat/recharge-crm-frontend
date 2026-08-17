@@ -347,7 +347,7 @@ export default function Reports() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-                          {['Txn ID', 'Retailer', 'Mobile', 'Operator', 'Amount', 'Status', 'Date'].map(
+                          {['Txn ID', 'MRobotics Rc ID', 'Retailer', 'Mobile', 'Operator', 'Amount', 'Status', 'Date'].map(
                             (h) => (
                               <th
                                 key={h}
@@ -367,6 +367,9 @@ export default function Reports() {
                           >
                             <td className="px-4 py-3 font-mono text-xs text-[#475569]">
                               {txn.txnId?.slice(-10)}
+                            </td>
+                            <td className="px-4 py-3 font-mono text-xs text-[#0891B2]">
+                              {txn.mroboticsRcId || '—'}
                             </td>
                             <td className="px-4 py-3 text-[#0F172A]">{txn.user?.name || '—'}</td>
                             <td className="px-4 py-3">{txn.mobileNumber}</td>
@@ -567,7 +570,7 @@ export default function Reports() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-                          {['Txn ID', 'Mobile', 'Operator', 'Circle', 'Amount', 'Commission', 'Status', 'Date'].map((h) => (
+                          {['Txn ID', 'MRobotics Rc ID', 'Mobile', 'Operator', 'Circle', 'Amount', 'Commission', 'Status', 'Date'].map((h) => (
                             <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[#94A3B8] uppercase tracking-wide whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
@@ -577,6 +580,9 @@ export default function Reports() {
                           <tr key={txn._id} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors">
                             <td className="px-4 py-3 font-mono text-xs text-[#475569]">
                               {txn.txnId?.slice(-10)}
+                            </td>
+                            <td className="px-4 py-3 font-mono text-xs text-[#0891B2]">
+                              {txn.mroboticsRcId || '—'}
                             </td>
                             <td className="px-4 py-3 font-medium text-[#0F172A]">{txn.mobileNumber}</td>
                             <td className="px-4 py-3 text-[#475569]">{txn.operator?.name || '—'}</td>

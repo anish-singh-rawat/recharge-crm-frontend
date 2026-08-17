@@ -106,7 +106,7 @@ export default function AdminRecharge() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-                    {['Txn ID', 'Retailer', 'Mobile', 'Operator', 'Amount', 'Commission', 'Status', 'Date', 'Actions'].map((h) => (
+                    {['Txn ID', 'MRobotics Rc ID', 'Retailer', 'Mobile', 'Operator', 'Amount', 'Commission', 'Status', 'Date', 'Actions'].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-3 text-left text-xs font-medium text-[#94A3B8] uppercase tracking-wide whitespace-nowrap"
@@ -124,6 +124,9 @@ export default function AdminRecharge() {
                     >
                       <td className="px-4 py-3 font-mono text-xs text-[#475569]">
                         {txn.txnId?.slice(-10)}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-[#0891B2]">
+                        {txn.mroboticsRcId || '—'}
                       </td>
                       <td className="px-4 py-3">
                         <div>
