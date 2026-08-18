@@ -369,7 +369,7 @@ export default function Reports() {
                               {txn.txnId?.slice(-10)}
                             </td>
                             <td className="px-4 py-3 font-mono text-xs text-[#0891B2]">
-                              {txn.mroboticsRcId || '—'}
+                              {txn.providerTxnId || '—'}
                             </td>
                             <td className="px-4 py-3 text-[#0F172A]">{txn.user?.name || '—'}</td>
                             <td className="px-4 py-3">{txn.mobileNumber}</td>
@@ -582,7 +582,7 @@ export default function Reports() {
                               {txn.txnId?.slice(-10)}
                             </td>
                             <td className="px-4 py-3 font-mono text-xs text-[#0891B2]">
-                              {txn.mroboticsRcId || '—'}
+                              {txn.providerTxnId || '—'}
                             </td>
                             <td className="px-4 py-3 font-medium text-[#0F172A]">{txn.mobileNumber}</td>
                             <td className="px-4 py-3 text-[#475569]">{txn.operator?.name || '—'}</td>

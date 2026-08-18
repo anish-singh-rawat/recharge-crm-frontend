@@ -126,7 +126,7 @@ export default function AdminRecharge() {
                         {txn.txnId?.slice(-10)}
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-[#0891B2]">
-                        {txn.mroboticsRcId || '—'}
+                        {txn.providerTxnId || '—'}
                       </td>
                       <td className="px-4 py-3">
                         <div>

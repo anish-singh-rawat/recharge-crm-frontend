@@ -428,7 +428,7 @@ export default function Recharge() {
                             {txn.txnId?.slice(-10)}
                           </td>
                           <td className="px-4 py-3 font-mono text-xs text-[#0891B2]">
-                            {txn.mroboticsRcId || '—'}
+                            {txn.providerTxnId || '—'}
                           </td>
                           <td className="px-4 py-3">{txn.mobileNumber}</td>
                           <td className="px-4 py-3 text-[#475569]">{txn.operator?.name || '—'}</td>
