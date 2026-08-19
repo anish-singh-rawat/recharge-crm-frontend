@@ -4,7 +4,10 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, LineChart, Line, Cell,
 } from 'recharts'
+import { Download } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { reportsApi } from '@/api/reports'
+import { exportToExcel } from '@/utils/exportExcel'
 import Card, { CardHeader } from '@/components/ui/Card'
 import StatCard from '@/components/ui/StatCard'
 import StatusBadge from '@/components/ui/StatusBadge'
@@ -52,11 +55,68 @@ export default function Reports() {
   const [myWalletPage, setMyWalletPage] = useState(1)
   const [myRechargeStatus, setMyRechargeStatus] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   const [dateRange, setDateRange] = useState({
     startDate: new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10),
     endDate: new Date().toISOString().slice(0, 10),
   })
+
+  const handleExport = async (type) => {
+    setExporting(true)
+    try {
+      let res
+      const params = { ...dateRange }
+
+      if (type === 'recharge') res = await reportsApi.exportRechargeReport(params)
+      else if (type === 'wallet') res = await reportsApi.exportWalletReport(params)
+      else if (type === 'my-recharge') res = await reportsApi.exportMyRechargeReport(params)
+      else if (type === 'my-wallet') res = await reportsApi.exportMyWalletReport(params)
+      else if (type === 'commission') res = await reportsApi.getCommissionReport(params)
+
+      const items = res.data?.data?.items || res.data?.data?.report || res.data?.data || []
+      if (!items.length) { toast.error('No data to export'); return }
+
+      let rows = []
+      if (type === 'recharge' || type === 'my-recharge') {
+        const headers = type === 'recharge'
+          ? ['Txn ID', 'Provider Txn ID', 'Retailer', 'Mobile', 'Operator', 'Circle', 'Amount', 'Commission', 'Status', 'Date']
+          : ['Txn ID', 'Provider Txn ID', 'Mobile', 'Operator', 'Circle', 'Amount', 'Commission', 'Status', 'Date']
+        rows = [headers, ...items.map((t) => type === 'recharge'
+          ? [t.txnId, t.providerTxnId || '', t.user?.name || '', t.mobileNumber, t.operator?.name || '', t.circle?.name || '', t.amount, t.commission, t.status, formatDateTime(t.createdAt)]
+          : [t.txnId, t.providerTxnId || '', t.mobileNumber, t.operator?.name || '', t.circle?.name || '', t.amount, t.commission, t.status, formatDateTime(t.createdAt)]
+        )]
+      } else {
+        const headers = type === 'wallet'
+          ? ['User', 'Phone', 'Type', 'Amount', 'Balance Before', 'Balance After', 'Description', 'Date']
+          : ['Txn ID', 'Type', 'Amount', 'Balance Before', 'Balance After', 'Description', 'Date']
+        rows = [headers, ...items.map((t) => type === 'wallet'
+          ? [t.user?.name || '', t.user?.phone || '', t.type, t.amount, t.balanceBefore, t.balanceAfter, t.description || '', formatDateTime(t.createdAt)]
+          : [t.txnId, t.type, t.amount, t.balanceBefore, t.balanceAfter, t.description || '', formatDateTime(t.createdAt)]
+        )]
+      }
+
+      const filename = `rechpays_${type}_${dateRange.startDate}_to_${dateRange.endDate}.xlsx`
+      exportToExcel(rows, filename)
+      toast.success(`Exported ${items.length} records`)
+    } catch {
+      toast.error('Export failed. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const ExportButton = ({ type, label = 'Export Excel' }) => (
+    <button
+      type="button"
+      onClick={() => handleExport(type)}
+      disabled={exporting}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#16A34A] text-white text-xs font-medium hover:bg-[#15803D] transition-colors disabled:opacity-60"
+    >
+      <Download size={13} />
+      {exporting ? 'Exporting…' : label}
+    </button>
+  )
 
   const { data: salesReport, isLoading: salesLoading } = useQuery({
     queryKey: ['reports', 'sales', dateRange],
@@ -319,23 +379,26 @@ export default function Reports() {
             <Card padding={false}>
               <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
                 <CardHeader title="Recharge Report" />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value)
-                    setRechargePage(1)
-                  }}
-                  className="text-sm border border-[#E2E8F0] rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                >
-                  <option value="">All Status</option>
-                  {['SUCCESS', 'FAILED', 'PENDING', 'PROCESSING', 'REFUNDED', 'TIMEOUT'].map(
-                    (s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    )
-                  )}
-                </select>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value)
+                      setRechargePage(1)
+                    }}
+                    className="text-sm border border-[#E2E8F0] rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                  >
+                    <option value="">All Status</option>
+                    {['SUCCESS', 'FAILED', 'PENDING', 'PROCESSING', 'REFUNDED', 'TIMEOUT'].map(
+                      (s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      )
+                    )}
+                  </select>
+                  <ExportButton type="recharge" />
+                </div>
               </div>
               {rechargeLoading ? (
                 <TableSkeleton rows={8} cols={6} />
@@ -401,8 +464,9 @@ export default function Reports() {
 
           {tab === 'wallet' && (
             <Card padding={false}>
-              <div className="p-4 border-b border-[#E2E8F0]">
+              <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
                 <CardHeader title="Wallet Report" />
+                <ExportButton type="wallet" />
               </div>
               {walletLoading ? (
                 <TableSkeleton rows={8} cols={5} />
@@ -478,7 +542,7 @@ export default function Reports() {
 
           {tab === 'commission' && (
             <Card padding={false}>
-              <div className="p-4 border-b border-[#E2E8F0]">
+              <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
                 <CardHeader title="Commission Report" subtitle="Per retailer commission earned" />
               </div>
               {commissionLoading ? (
@@ -549,16 +613,19 @@ export default function Reports() {
             <Card padding={false}>
               <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
                 <CardHeader title="My Recharge Report" />
-                <select
-                  value={myRechargeStatus}
-                  onChange={(e) => { setMyRechargeStatus(e.target.value); setMyRechargePage(1) }}
-                  className="text-sm border border-[#E2E8F0] rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                >
-                  <option value="">All Status</option>
-                  {['SUCCESS', 'FAILED', 'PENDING', 'PROCESSING', 'REFUNDED', 'TIMEOUT'].map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    value={myRechargeStatus}
+                    onChange={(e) => { setMyRechargeStatus(e.target.value); setMyRechargePage(1) }}
+                    className="text-sm border border-[#E2E8F0] rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                  >
+                    <option value="">All Status</option>
+                    {['SUCCESS', 'FAILED', 'PENDING', 'PROCESSING', 'REFUNDED', 'TIMEOUT'].map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <ExportButton type="my-recharge" />
+                </div>
               </div>
               {myRechargeLoading ? (
                 <TableSkeleton rows={8} cols={7} />
@@ -606,8 +673,9 @@ export default function Reports() {
 
           {retailerTab === 'wallet' && (
             <Card padding={false}>
-              <div className="p-4 border-b border-[#E2E8F0]">
+              <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
                 <CardHeader title="My Wallet Report" />
+                <ExportButton type="my-wallet" />
               </div>
               {myWalletLoading ? (
                 <TableSkeleton rows={8} cols={6} />
