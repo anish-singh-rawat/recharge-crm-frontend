@@ -233,12 +233,20 @@ export default function ApiKeys() {
         </div>
       )}
 
-      <CreateKeyModal
+      {/* <CreateKeyModal
         open={createModal}
         onClose={() => setCreateModal(false)}
         onCreated={(key) => { setRawKey(key) }}
-      />
+      /> */}
 
+      <CreateKeyModal
+        open={createModal}
+        onClose={() => setCreateModal(false)}
+        onCreated={(key) => {
+          setRawKey(key)
+          queryClient.invalidateQueries({ queryKey: ['api-keys'] })
+        }}
+      />
       <RawKeyModal
         open={!!rawKey}
         onClose={() => setRawKey(null)}
