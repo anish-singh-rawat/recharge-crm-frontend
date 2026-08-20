@@ -32,7 +32,6 @@ import Operators from '@/pages/admin/Operators'
 import OperatorPlans from '@/pages/admin/OperatorPlans'
 import OperatorsPlans from '@/pages/retailer/OperatorsPlans'
 import Settings from '@/pages/admin/Settings'
-import Logs from '@/pages/admin/Logs'
 import Provider from '@/pages/admin/Provider'
 import Maintenance from '@/pages/Maintenance'
 
@@ -205,7 +204,7 @@ export default function App() {
                       <Route path="/admin/operators" element={<Operators />} />
                       <Route path="/admin/operators/:id/plans" element={<OperatorPlans />} />
                       <Route path="/admin/settings" element={<Settings />} />
-                      <Route path="/admin/logs" element={<Logs />} />
+                      {/* <Route path="/admin/logs" element={<Logs />} /> */}
                       <Route path="/admin/provider" element={<Provider />} />
                     </Route>
                   </Route>

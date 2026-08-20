@@ -50,7 +50,7 @@ export default function Sidebar({ collapsed, onToggle, unreadCount = 0 }) {
     { to: '/notifications', label: 'Notifications', icon: Bell, roles: ['admin', 'super_admin', 'retailer'] },
     { to: '/api-keys', label: 'API Keys', icon: Key, roles: ['admin', 'super_admin', 'retailer'], requireApiAccess: true },
     { to: '/api-docs', label: 'API Docs', icon: BookOpen, roles: ['admin', 'super_admin', 'retailer'], requireApiAccess: true },
-    { to: '/admin/logs', label: 'Logs', icon: FileText, roles: ['admin', 'super_admin'] },
+    // { to: '/admin/logs', label: 'Logs', icon: FileText, roles: ['admin', 'super_admin'] },
     { to: '/admin/provider', label: 'Provider', icon: Wifi, roles: ['admin', 'super_admin'] },
     { to: '/admin/settings', label: 'Settings', icon: Settings, roles: ['admin', 'super_admin'] },
   ]
