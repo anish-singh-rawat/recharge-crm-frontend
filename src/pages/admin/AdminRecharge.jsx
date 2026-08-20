@@ -106,7 +106,7 @@ export default function AdminRecharge() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-                    {['Txn ID', 'MRobotics Rc ID', 'Retailer', 'Mobile', 'Operator', 'Amount', 'Commission', 'Status', 'Date', 'Actions'].map((h) => (
+                    {['Txn ID', 'MRobotics Rc ID', 'Provider', 'Retailer', 'Mobile', 'Operator', 'Amount', 'Commission', 'Status', 'Date', 'Actions'].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-3 text-left text-xs font-medium text-[#94A3B8] uppercase tracking-wide whitespace-nowrap"
@@ -127,6 +127,17 @@ export default function AdminRecharge() {
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-[#0891B2]">
                         {txn.providerTxnId || '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        {txn.usedProvider ? (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            txn.usedProvider === 'realrobo'
+                              ? 'bg-[#DCFCE7] text-[#16A34A]'
+                              : 'bg-[#DBEAFE] text-[#2563EB]'
+                          }`}>
+                            {txn.usedProvider === 'realrobo' ? 'RealRobo' : 'MRobotics'}
+                          </span>
+                        ) : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <div>
