@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { UserPlus, Search, Ban, CheckCircle, Trash2, Eye, Pencil, ToggleLeft, ToggleRight, Percent, Phone } from 'lucide-react'
+import { UserPlus, Search, Ban, CheckCircle, Trash2, Eye, Pencil, ToggleLeft, ToggleRight, Percent, Phone, Settings2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { usersApi } from '@/api/users'
+import { operatorsApi } from '@/api/operators'
 import Card, { CardHeader } from '@/components/ui/Card'
 import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
@@ -201,6 +202,169 @@ function EditUserModal({ open, onClose, user }) {
   )
 }
 
+// ─── Operator-wise Commission Modal ──────────────────────────────────────────
+function OperatorCommissionModal({ user, onClose, onSave, isSaving }) {
+  // rows = [{ operatorId: string, percent: string }]
+  const [rows, setRows] = useState([{ operatorId: '', percent: '' }])
+
+  // Load operators via the active-operators endpoint
+  const { data: operators = [], isLoading: loadingOperators } = useQuery({
+    queryKey: ['active-operators-all'],
+    queryFn: () => operatorsApi.getActiveOperators(),
+    select: (r) => r.data.data?.operators || [],
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Pre-fill rows from saved operatorCommissions when modal opens / user changes
+  useEffect(() => {
+    if (!user) return
+    const saved = user.operatorCommissions || []
+    if (saved.length > 0) {
+      setRows(
+        saved.map((oc) => ({
+          operatorId: oc.operator?._id || oc.operator || '',
+          percent: (oc.rate * 100).toFixed(2),
+        }))
+      )
+    } else {
+      setRows([{ operatorId: '', percent: '' }])
+    }
+  }, [user])
+
+  const globalRate = user ? ((user.commissionRate || 0) * 100).toFixed(2) : '0.00'
+
+  // Operators already selected in other rows (for disabling duplicates)
+  const selectedIds = rows.map((r) => r.operatorId).filter(Boolean)
+
+  const addRow = () => setRows((prev) => [...prev, { operatorId: '', percent: '' }])
+
+  const removeRow = (idx) =>
+    setRows((prev) => prev.length === 1 ? [{ operatorId: '', percent: '' }] : prev.filter((_, i) => i !== idx))
+
+  const updateRow = (idx, field, value) =>
+    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)))
+
+  const handleSave = () => {
+    const validRows = rows.filter((r) => r.operatorId && r.percent !== '')
+    if (validRows.length === 0) {
+      // Saving empty = clear all operator-specific commissions
+      onSave([])
+      return
+    }
+    const commissions = validRows.map((r) => ({
+      operatorId: r.operatorId,
+      rate: parseFloat(r.percent) / 100,
+    }))
+    onSave(commissions)
+  }
+
+  return (
+    <Modal
+      open={!!user}
+      onClose={onClose}
+      title={`Operator-wise Commission — ${user?.name || ''}`}
+      size="md"
+    >
+      <div className="space-y-4">
+        {/* Subtitle */}
+        <p className="text-sm text-[#475569]">
+          Set a custom commission for each operator for{' '}
+          <strong>{user?.name}</strong>. Operators not listed here will use
+          the global rate{' '}
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-[#EDE9FE] text-[#7C3AED] rounded text-xs font-mono font-semibold">
+            {globalRate}%
+          </span>
+          .
+        </p>
+
+        {/* Column headers */}
+        <div className="grid grid-cols-[1fr_auto_auto] gap-2 items-center px-1">
+          <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wide">Operator</span>
+          <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wide w-28 text-right pr-6">Commission %</span>
+          <span className="w-7" />
+        </div>
+
+        {/* Rows */}
+        <div className="space-y-2">
+          {loadingOperators ? (
+            <div className="py-8 text-center text-sm text-[#94A3B8]">Loading operators…</div>
+          ) : (
+            rows.map((row, idx) => (
+              <div key={idx} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center">
+                {/* Operator dropdown */}
+                <select
+                  value={row.operatorId}
+                  onChange={(e) => updateRow(idx, 'operatorId', e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB] bg-white text-[#0F172A]"
+                >
+                  <option value="">— Select Operator —</option>
+                  {operators.map((op) => (
+                    <option
+                      key={op._id}
+                      value={op._id}
+                      disabled={selectedIds.includes(op._id) && op._id !== row.operatorId}
+                    >
+                      {op.displayName || op.name} ({op.code})
+                    </option>
+                  ))}
+                </select>
+
+                {/* Commission % input */}
+                <div className="relative w-28">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={row.percent}
+                    onChange={(e) => updateRow(idx, 'percent', e.target.value)}
+                    placeholder={globalRate}
+                    className="w-full px-3 py-2 pr-7 text-sm border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C3AED] font-mono text-right text-[#0F172A]"
+                  />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#94A3B8] text-xs pointer-events-none">
+                    %
+                  </span>
+                </div>
+
+                {/* Remove row button */}
+                <button
+                  type="button"
+                  onClick={() => removeRow(idx)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-[#94A3B8] hover:text-[#DC2626] hover:bg-[#FEE2E2] transition-colors text-base font-bold"
+                  title="Remove row"
+                >
+                  ×
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Add row button */}
+        {!loadingOperators && (
+          <button
+            type="button"
+            onClick={addRow}
+            className="w-full py-2 text-sm text-[#2563EB] border border-dashed border-[#BFDBFE] rounded-lg hover:bg-[#EFF6FF] transition-colors font-medium"
+          >
+            + Add Operator
+          </button>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-1">
+          <Button variant="secondary" className="flex-1" onClick={onClose} type="button">
+            Cancel
+          </Button>
+          <Button className="flex-1" loading={isSaving} onClick={handleSave}>
+            Save Commissions
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 export default function Users() {
   const queryClient = useQueryClient()
   const { isSuperAdmin } = useAuthStore()
@@ -216,6 +380,7 @@ export default function Users() {
   const [viewUser, setViewUser] = useState(null)
   const [commissionModal, setCommissionModal] = useState(null)
   const [commissionValue, setCommissionValue] = useState('')
+  const [operatorCommissionModal, setOperatorCommissionModal] = useState(null) // retailer user object
   const [contactModal, setContactModal] = useState(null)
   const [contactForm, setContactForm] = useState({ phone: '', email: '' })
   const [apiAccessState, setApiAccessState] = useState({});
@@ -321,6 +486,16 @@ export default function Users() {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setCommissionModal(null)
       setCommissionValue('')
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const operatorCommissionMutation = useMutation({
+    mutationFn: ({ id, commissions }) => usersApi.updateOperatorCommissions(id, commissions),
+    onSuccess: (res) => {
+      toast.success(res.data?.message || 'Operator commissions updated')
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setOperatorCommissionModal(null)
     },
     onError: (err) => toast.error(extractError(err)),
   })
@@ -439,18 +614,33 @@ export default function Users() {
                       <td className="px-4 py-3 text-[#475569]">{user.businessName || '—'}</td>
                       <td className="px-4 py-3">
                         {user.role === 'retailer' ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCommissionModal(user)
-                              setCommissionValue(((user.commissionRate || 0.02) * 100).toFixed(2))
-                            }}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#EDE9FE] text-[#7C3AED] text-xs font-semibold hover:bg-[#DDD6FE] transition-colors cursor-pointer"
-                            title="Edit commission"
-                          >
-                            {((user.commissionRate || 0) * 100).toFixed(2)}
-                            <Percent size={11} />
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            {/* Global commission rate badge */}
+                            {/* <button
+                              type="button"
+                              onClick={() => {
+                                setCommissionModal(user)
+                                setCommissionValue(((user.commissionRate || 0) * 100).toFixed(2))
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#EDE9FE] text-[#7C3AED] text-xs font-semibold hover:bg-[#DDD6FE] transition-colors cursor-pointer"
+                              title="Edit global commission"
+                            >
+                              {((user.commissionRate || 0) * 100).toFixed(2)}
+                              <Percent size={11} />
+                            </button> */}
+                            {/* Operator-wise commission button */}
+                            <button
+                              type="button"
+                              onClick={() => setOperatorCommissionModal(user)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#DCFCE7] text-[#16A34A] text-xs font-semibold hover:bg-[#BBF7D0] transition-colors cursor-pointer"
+                              title="Set per-operator commission"
+                            >
+                              <Settings2 size={11} />
+                              {user.operatorCommissions?.length > 0
+                                ? `${user.operatorCommissions.length} ops`
+                                : 'By Op'}
+                            </button>
+                          </div>
                         ) : (
                           <span className="text-xs text-[#94A3B8]">N/A</span>
                         )}
@@ -676,18 +866,20 @@ export default function Users() {
         )}
       </Modal>
 
+      {/* Global commission rate modal */}
       <Modal
         open={!!commissionModal}
         onClose={() => { setCommissionModal(null); setCommissionValue('') }}
-        title={`Set Commission — ${commissionModal?.name}`}
+        title={`Global Commission — ${commissionModal?.name}`}
         size="sm"
       >
         <div className="space-y-4">
           <p className="text-sm text-[#475569]">
-            Set the commission percentage for <strong>{commissionModal?.name}</strong>. This applies to all their successful recharges.
+            Set the <strong>default</strong> commission for <strong>{commissionModal?.name}</strong>.
+            This applies to operators that don't have a specific rate set.
           </p>
           <div>
-            <label className="text-xs font-medium text-[#475569] block mb-1.5">Commission Rate (%)</label>
+            <label className="text-xs font-medium text-[#475569] block mb-1.5">Default Commission Rate (%)</label>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -717,11 +909,21 @@ export default function Users() {
                 commissionMutation.mutate({ id: commissionModal._id, rate })
               }}
             >
-              Save Commission
+              Save
             </Button>
           </div>
         </div>
       </Modal>
+
+      {/* Operator-wise commission modal */}
+      <OperatorCommissionModal
+        user={operatorCommissionModal}
+        onClose={() => setOperatorCommissionModal(null)}
+        onSave={(commissions) =>
+          operatorCommissionMutation.mutate({ id: operatorCommissionModal._id, commissions })
+        }
+        isSaving={operatorCommissionMutation.isPending}
+      />
 
       <Modal
         open={!!contactModal}

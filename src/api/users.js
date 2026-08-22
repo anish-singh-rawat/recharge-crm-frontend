@@ -10,5 +10,7 @@ export const usersApi = {
   unblockUser: (id) => api.patch(`/users/${id}/unblock`),
   toggleApiAccess: (id) => api.patch(`/users/${id}/api-access`),
   updateCommission: (id, commissionRate) => api.patch(`/users/${id}/commission`, { commissionRate }),
+  updateOperatorCommissions: (id, commissions) =>
+    api.patch(`/users/${id}/operator-commissions`, { commissions }),
   updateContact: (id, data) => api.patch(`/auth/users/${id}/contact`, data),
 }
