@@ -26,11 +26,20 @@ const PROVIDERS = [
   },
 ]
 
+function normalizeOrder(value) {
+  if (Array.isArray(value)) return value
+  if (typeof value === 'string') {
+    try { const p = JSON.parse(value); if (Array.isArray(p)) return p } catch {}
+    return value ? [value] : ['mrobotics']
+  }
+  return ['mrobotics']
+}
+
 function ProviderPriorityCard({ priority, onSave, saving }) {
-  const [order, setOrder] = useState(priority || ['mrobotics'])
+  const [order, setOrder] = useState(normalizeOrder(priority))
 
   useEffect(() => {
-    if (priority) setOrder(priority)
+    setOrder(normalizeOrder(priority))
   }, [priority])
 
   const moveUp = (idx) => {
@@ -267,11 +276,12 @@ export default function Settings() {
         </Card>
       ))}
 
-      <ProviderPriorityCard
+     {/* additional implementation */}
+      {/* <ProviderPriorityCard
         priority={currentValues['recharge.provider.priority']}
         saving={saving['recharge.provider.priority']}
         onSave={handleSave}
-      />
+      /> */}
 
       <Card>
         <CardHeader title="All Settings" subtitle="Raw settings view" />
@@ -284,6 +294,7 @@ export default function Settings() {
               <span className="font-mono text-xs text-[#475569]">{key}</span>
               <div className="flex items-center gap-2">
                 <input
+                  disabled={true} // additional implementation
                   value={currentValues[key] ?? ''}
                   onChange={(e) =>
                     setValues((v) => ({ ...v, [key]: e.target.value }))
@@ -291,7 +302,7 @@ export default function Settings() {
                   className="text-sm border border-[#E2E8F0] rounded px-2 py-1 w-40 focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
                 />
                 <button
-                  onClick={() => handleSave(key)}
+                  // onClick={() => handleSave(key)} // additional implementation
                   className="p-1.5 rounded hover:bg-[#DBEAFE] text-[#2563EB] transition-colors"
                   title="Save"
                 >

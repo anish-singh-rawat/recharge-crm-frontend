@@ -9,4 +9,5 @@ export const usersApi = {
   blockUser: (id, reason) => api.patch(`/users/${id}/block`, { reason }),
   unblockUser: (id) => api.patch(`/users/${id}/unblock`),
   toggleApiAccess: (id) => api.patch(`/users/${id}/api-access`),
+  updateCommission: (id, commissionRate) => api.patch(`/users/${id}/commission`, { commissionRate }),
 }

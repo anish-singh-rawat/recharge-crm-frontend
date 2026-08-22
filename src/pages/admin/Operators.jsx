@@ -224,7 +224,7 @@ export default function Operators() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-                      {['Name', 'Code', 'Type', 'Min', 'Max', 'Commission', 'Actions'].map((h) => (
+                      {['Name', 'Code', 'Type', 'Min', 'Max', 'Actions'].map((h) => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[#94A3B8] uppercase tracking-wide whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -237,7 +237,6 @@ export default function Operators() {
                         <td className="px-4 py-3"><Badge variant="primary">{op.type}</Badge></td>
                         <td className="px-4 py-3 text-[#475569]">₹{op.minAmount || '—'}</td>
                         <td className="px-4 py-3 text-[#475569]">₹{op.maxAmount || '—'}</td>
-                        <td className="px-4 py-3 text-[#475569]">{op.commission ? `${op.commission}%` : '—'}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
                             <Link

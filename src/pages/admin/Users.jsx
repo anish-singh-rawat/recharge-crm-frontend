@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { UserPlus, Search, Ban, CheckCircle, Trash2, Eye, Pencil, ToggleLeft, ToggleRight } from 'lucide-react'
+import { UserPlus, Search, Ban, CheckCircle, Trash2, Eye, Pencil, ToggleLeft, ToggleRight, Percent } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { usersApi } from '@/api/users'
 import Card, { CardHeader } from '@/components/ui/Card'
@@ -214,6 +214,8 @@ export default function Users() {
   const [deleteModal, setDeleteModal] = useState(null)
   const [blockReason, setBlockReason] = useState('')
   const [viewUser, setViewUser] = useState(null)
+  const [commissionModal, setCommissionModal] = useState(null)
+  const [commissionValue, setCommissionValue] = useState('')
   const [apiAccessState, setApiAccessState] = useState({});
 
   const { data, isLoading } = useQuery({
@@ -310,6 +312,17 @@ export default function Users() {
     },
   });
 
+  const commissionMutation = useMutation({
+    mutationFn: ({ id, rate }) => usersApi.updateCommission(id, rate),
+    onSuccess: (res) => {
+      toast.success(res.data?.message || 'Commission updated')
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setCommissionModal(null)
+      setCommissionValue('')
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
 
   return (
     <div className="space-y-6">
@@ -367,7 +380,7 @@ export default function Users() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-                    {['User', 'Phone', 'Role', 'Business', 'Status', 'API Access', 'Created', 'Actions'].map(
+                    {['User', 'Phone', 'Role', 'Business', 'Commission', 'Status', 'API Access', 'Created', 'Actions'].map(
                       (h) => (
                         <th
                           key={h}
@@ -411,6 +424,24 @@ export default function Users() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-[#475569]">{user.businessName || '—'}</td>
+                      <td className="px-4 py-3">
+                        {user.role === 'retailer' ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCommissionModal(user)
+                              setCommissionValue(((user.commissionRate || 0.02) * 100).toFixed(2))
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#EDE9FE] text-[#7C3AED] text-xs font-semibold hover:bg-[#DDD6FE] transition-colors"
+                            title="Edit commission"
+                          >
+                            <Percent size={11} />
+                            {((user.commissionRate || 0) * 100).toFixed(2)}%
+                          </button>
+                        ) : (
+                          <span className="text-xs text-[#94A3B8]">N/A</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <Badge variant={user.isBlocked ? 'danger' : 'success'}>
                           {user.isBlocked ? 'Blocked' : 'Active'}
@@ -588,8 +619,8 @@ export default function Users() {
         onClose={() => setDeleteModal(null)}
         onConfirm={() => deleteMutation.mutate(deleteModal._id)}
         title="Delete User"
-        message={`Are you sure you want to delete ${deleteModal?.name}? This action cannot be undone.`}
-        confirmLabel="Delete"
+        message={`Permanently delete ${deleteModal?.name}? This will remove all their data and cannot be undone.`}
+        confirmLabel="Delete Permanently"
         loading={deleteMutation.isPending}
       />
 
@@ -609,6 +640,7 @@ export default function Users() {
               ['Business', viewUser.businessName || '—'],
               ['GST', viewUser.gstNumber || '—'],
               ['PAN', viewUser.panNumber || '—'],
+              ['Commission', viewUser.role === 'retailer' ? `${((viewUser.commissionRate || 0) * 100).toFixed(2)}%` : 'N/A'],
               ['Status', viewUser.isBlocked ? 'Blocked' : 'Active'],
               ['Created', formatDateTime(viewUser.createdAt)],
             ].map(([label, value]) => (
@@ -622,6 +654,53 @@ export default function Users() {
             ))}
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={!!commissionModal}
+        onClose={() => { setCommissionModal(null); setCommissionValue('') }}
+        title={`Set Commission — ${commissionModal?.name}`}
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-[#475569]">
+            Set the commission percentage for <strong>{commissionModal?.name}</strong>. This applies to all their successful recharges.
+          </p>
+          <div>
+            <label className="text-xs font-medium text-[#475569] block mb-1.5">Commission Rate (%)</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={commissionValue}
+                onChange={(e) => setCommissionValue(e.target.value)}
+                placeholder="2.00"
+                className="flex-1 px-3 py-2 text-sm border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB] font-mono"
+              />
+              <span className="text-[#475569] font-semibold">%</span>
+            </div>
+            <p className="text-[11px] text-[#94A3B8] mt-1">
+              Current: {((commissionModal?.commissionRate || 0) * 100).toFixed(2)}% — Enter value between 0 and 100
+            </p>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button variant="secondary" className="flex-1" onClick={() => { setCommissionModal(null); setCommissionValue('') }} type="button">
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              loading={commissionMutation.isPending}
+              onClick={() => {
+                const rate = parseFloat(commissionValue) / 100
+                commissionMutation.mutate({ id: commissionModal._id, rate })
+              }}
+            >
+              Save Commission
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   )
