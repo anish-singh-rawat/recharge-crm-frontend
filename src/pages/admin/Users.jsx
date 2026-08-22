@@ -432,11 +432,11 @@ export default function Users() {
                               setCommissionModal(user)
                               setCommissionValue(((user.commissionRate || 0.02) * 100).toFixed(2))
                             }}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#EDE9FE] text-[#7C3AED] text-xs font-semibold hover:bg-[#DDD6FE] transition-colors"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#EDE9FE] text-[#7C3AED] text-xs font-semibold hover:bg-[#DDD6FE] transition-colors cursor-pointer"
                             title="Edit commission"
                           >
+                            {((user.commissionRate || 0) * 100).toFixed(2)}
                             <Percent size={11} />
-                            {((user.commissionRate || 0) * 100).toFixed(2)}%
                           </button>
                         ) : (
                           <span className="text-xs text-[#94A3B8]">N/A</span>

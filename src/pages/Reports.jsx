@@ -435,15 +435,13 @@ export default function Reports() {
                               {txn.providerTxnId || '—'}
                             </td>
                             <td className="px-4 py-3">
-                              {txn.usedProvider ? (
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                  txn.usedProvider === 'realrobo'
-                                    ? 'bg-[#DCFCE7] text-[#16A34A]'
-                                    : 'bg-[#DBEAFE] text-[#2563EB]'
-                                }`}>
-                                  {txn.usedProvider === 'realrobo' ? 'RealRobo' : 'MRobotics'}
-                                </span>
-                              ) : '—'}
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                txn.usedProvider === 'realrobo'
+                                  ? 'bg-[#DCFCE7] text-[#16A34A]'
+                                  : 'bg-[#DBEAFE] text-[#2563EB]'
+                              }`}>
+                                {txn.usedProvider === 'realrobo' ? 'RealRobo' : 'MRobotics'}
+                              </span>
                             </td>
                             <td className="px-4 py-3 text-[#0F172A]">{txn.user?.name || '—'}</td>
                             <td className="px-4 py-3">{txn.mobileNumber}</td>
@@ -663,15 +661,13 @@ export default function Reports() {
                               {txn.providerTxnId || '—'}
                             </td>
                             <td className="px-4 py-3">
-                              {txn.usedProvider ? (
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                  txn.usedProvider === 'realrobo'
-                                    ? 'bg-[#DCFCE7] text-[#16A34A]'
-                                    : 'bg-[#DBEAFE] text-[#2563EB]'
-                                }`}>
-                                  {txn.usedProvider === 'realrobo' ? 'RealRobo' : 'MRobotics'}
-                                </span>
-                              ) : '—'}
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                txn.usedProvider === 'realrobo'
+                                  ? 'bg-[#DCFCE7] text-[#16A34A]'
+                                  : 'bg-[#DBEAFE] text-[#2563EB]'
+                              }`}>
+                                {txn.usedProvider === 'realrobo' ? 'RealRobo' : 'MRobotics'}
+                              </span>
                             </td>
                             <td className="px-4 py-3 font-medium text-[#0F172A]">{txn.mobileNumber}</td>
                             <td className="px-4 py-3 text-[#475569]">{txn.operator?.name || '—'}</td>
