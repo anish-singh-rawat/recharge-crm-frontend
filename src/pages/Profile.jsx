@@ -1,15 +1,16 @@
-import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Camera, Monitor, Clock, Eye, EyeOff, LogOut } from 'lucide-react'
+import { Camera, Monitor, Clock, Eye, EyeOff, LogOut, Pencil } from 'lucide-react'
+import { useState, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { authApi } from '@/api/auth'
 import useAuthStore from '@/store/authStore'
 import Card, { CardHeader } from '@/components/ui/Card'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
+import Modal from '@/components/ui/Modal'
 import Badge from '@/components/ui/Badge'
 import { PageLoader } from '@/components/ui/LoadingSpinner'
 import { formatDateTime, formatTimeAgo, getInitials, extractError } from '@/utils/format'
@@ -142,6 +143,21 @@ export default function Profile() {
     onError: (err) => toast.error(extractError(err)),
   })
 
+  const [contactModal, setContactModal] = useState(false)
+  const [contactForm, setContactForm] = useState({ phone: '', email: '' })
+
+  const contactMutation = useMutation({
+    mutationFn: (data) => authApi.updateContact(data),
+    onSuccess: (res) => {
+      toast.success('Contact details updated')
+      const updated = res.data.data?.user || res.data.data
+      if (updated) updateUser(updated)
+      queryClient.invalidateQueries({ queryKey: ['profile'] })
+      setContactModal(false)
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
   if (!displayUser) return <PageLoader />
 
   return (
@@ -205,6 +221,17 @@ export default function Profile() {
                   <span className="font-medium text-[#0F172A] text-right break-all">{v}</span>
                 </div>
               ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setContactForm({ phone: displayUser?.phone || '', email: displayUser?.email || '' })
+                  setContactModal(true)
+                }}
+                className="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-[#E2E8F0] text-xs font-medium text-[#475569] hover:bg-[#F8FAFC] hover:border-[#2563EB] hover:text-[#2563EB] transition-colors"
+              >
+                <Pencil size={12} />
+                Edit Phone / Email
+              </button>
             </div>
           </Card>
         </div>
@@ -393,6 +420,55 @@ export default function Profile() {
           )}
         </div>
       </div>
+
+      <Modal
+        open={contactModal}
+        onClose={() => setContactModal(false)}
+        title="Edit Phone / Email"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-[#475569] block mb-1.5">Phone Number</label>
+            <input
+              type="text"
+              value={contactForm.phone}
+              onChange={(e) => setContactForm((f) => ({ ...f, phone: e.target.value }))}
+              placeholder="9876543210"
+              maxLength={10}
+              className="w-full px-3 py-2 text-sm border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB] font-mono"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[#475569] block mb-1.5">Email Address</label>
+            <input
+              type="email"
+              value={contactForm.email}
+              onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="you@example.com"
+              className="w-full px-3 py-2 text-sm border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setContactModal(false)} type="button">
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              loading={contactMutation.isPending}
+              onClick={() => {
+                const payload = {}
+                if (contactForm.phone && contactForm.phone !== displayUser?.phone) payload.phone = contactForm.phone
+                if (contactForm.email && contactForm.email !== displayUser?.email) payload.email = contactForm.email
+                if (!Object.keys(payload).length) { toast.error('No changes detected'); return }
+                contactMutation.mutate(payload)
+              }}
+            >
+              Save Changes
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

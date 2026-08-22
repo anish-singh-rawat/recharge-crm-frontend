@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { UserPlus, Search, Ban, CheckCircle, Trash2, Eye, Pencil, ToggleLeft, ToggleRight, Percent } from 'lucide-react'
+import { UserPlus, Search, Ban, CheckCircle, Trash2, Eye, Pencil, ToggleLeft, ToggleRight, Percent, Phone } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { usersApi } from '@/api/users'
 import Card, { CardHeader } from '@/components/ui/Card'
@@ -216,6 +216,8 @@ export default function Users() {
   const [viewUser, setViewUser] = useState(null)
   const [commissionModal, setCommissionModal] = useState(null)
   const [commissionValue, setCommissionValue] = useState('')
+  const [contactModal, setContactModal] = useState(null)
+  const [contactForm, setContactForm] = useState({ phone: '', email: '' })
   const [apiAccessState, setApiAccessState] = useState({});
 
   const { data, isLoading } = useQuery({
@@ -319,6 +321,17 @@ export default function Users() {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setCommissionModal(null)
       setCommissionValue('')
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const contactMutation = useMutation({
+    mutationFn: ({ id, data }) => usersApi.updateContact(id, data),
+    onSuccess: () => {
+      toast.success('Contact details updated')
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setContactModal(null)
+      setContactForm({ phone: '', email: '' })
     },
     onError: (err) => toast.error(extractError(err)),
   })
@@ -530,6 +543,13 @@ export default function Users() {
                           >
                             <Pencil size={14} />
                           </button>
+                          <button
+                            onClick={() => { setContactModal(user); setContactForm({ phone: user.phone || '', email: user.email || '' }) }}
+                            className="p-1.5 rounded hover:bg-[#DCFCE7] text-[#16A34A] transition-colors"
+                            title="Edit Phone/Email"
+                          >
+                            <Phone size={14} />
+                          </button>
                           {user.isBlocked ? (
                             <button
                               onClick={() => unblockMutation.mutate(user._id)}
@@ -698,6 +718,63 @@ export default function Users() {
               }}
             >
               Save Commission
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!contactModal}
+        onClose={() => { setContactModal(null); setContactForm({ phone: '', email: '' }) }}
+        title={`Edit Contact — ${contactModal?.name}`}
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-[#475569]">
+            Update phone number or email for <strong>{contactModal?.name}</strong>.
+          </p>
+          <div>
+            <label className="text-xs font-medium text-[#475569] block mb-1.5">Phone Number</label>
+            <input
+              type="text"
+              value={contactForm.phone}
+              onChange={(e) => setContactForm((f) => ({ ...f, phone: e.target.value }))}
+              placeholder="9876543210"
+              maxLength={10}
+              className="w-full px-3 py-2 text-sm border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB] font-mono"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[#475569] block mb-1.5">Email Address</label>
+            <input
+              type="email"
+              value={contactForm.email}
+              onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="user@example.com"
+              className="w-full px-3 py-2 text-sm border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => { setContactModal(null); setContactForm({ phone: '', email: '' }) }}
+              type="button"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              loading={contactMutation.isPending}
+              onClick={() => {
+                const payload = {}
+                if (contactForm.phone && contactForm.phone !== contactModal.phone) payload.phone = contactForm.phone
+                if (contactForm.email && contactForm.email !== contactModal.email) payload.email = contactForm.email
+                if (!Object.keys(payload).length) { toast.error('No changes detected'); return }
+                contactMutation.mutate({ id: contactModal._id, data: payload })
+              }}
+            >
+              Save Changes
             </Button>
           </div>
         </div>

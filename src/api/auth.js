@@ -15,6 +15,7 @@ export const authApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
   changePassword: (data) => api.post('/auth/change-password', data),
+  updateContact: (data) => api.patch('/auth/profile/contact', data),
   getSessions: () => api.get('/auth/sessions'),
   getLoginHistory: () => api.get('/auth/login-history'),
 }
