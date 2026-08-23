@@ -8,6 +8,7 @@ export const rechargeApi = {
   getAdminTransactionStatus: (txnId) =>
     api.get(`/recharge/admin/status/${txnId}`),
   retryRecharge: (txnId) => api.post(`/recharge/${txnId}/retry`),
-  refundRecharge: (txnId, reason) =>
-    api.post(`/recharge/${txnId}/refund`, { reason }),
+  refundRecharge: (txnId, reason, forceRefundSuccess = false) =>
+    api.post(`/recharge/${txnId}/refund`, { reason, forceRefundSuccess }),
 }
+

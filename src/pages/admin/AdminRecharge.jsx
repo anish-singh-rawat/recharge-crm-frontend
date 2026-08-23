@@ -22,6 +22,7 @@ export default function AdminRecharge() {
   const [mobileFilter, setMobileFilter] = useState('')
   const [refundModal, setRefundModal] = useState(null)
   const [refundReason, setRefundReason] = useState('')
+  const [forceRefundConfirm, setForceRefundConfirm] = useState(false)
   const ready = useIsReady()
 
   const { data, isLoading } = useQuery({
@@ -53,12 +54,14 @@ export default function AdminRecharge() {
   })
 
   const refundMutation = useMutation({
-    mutationFn: ({ txnId, reason }) => rechargeApi.refundRecharge(txnId, reason),
+    mutationFn: ({ txnId, reason, forceRefundSuccess }) =>
+      rechargeApi.refundRecharge(txnId, reason, forceRefundSuccess),
     onSuccess: () => {
-      toast.success('Refund processed')
+      toast.success('Refund processed successfully')
       queryClient.invalidateQueries({ queryKey: ['recharge', 'all'] })
       setRefundModal(null)
       setRefundReason('')
+      setForceRefundConfirm(false)
     },
     onError: (err) => toast.error(extractError(err)),
   })
@@ -170,9 +173,12 @@ export default function AdminRecharge() {
                           )}
                           {txn.status === 'SUCCESS' && (
                             <button
-                              onClick={() => setRefundModal(txn)}
+                              onClick={() => {
+                                setRefundModal(txn)
+                                setForceRefundConfirm(false)
+                              }}
                               className="p-1.5 rounded hover:bg-[#FEF3C7] text-[#D97706] transition-colors"
-                              title="Refund"
+                              title="Force Refund (Admin)"
                             >
                               <CornerDownLeft size={14} />
                             </button>
@@ -191,32 +197,70 @@ export default function AdminRecharge() {
 
       <Modal
         open={!!refundModal}
-        onClose={() => setRefundModal(null)}
-        title="Process Refund"
+        onClose={() => {
+          setRefundModal(null)
+          setForceRefundConfirm(false)
+        }}
+        title={refundModal?.status === 'SUCCESS' ? 'Force Refund (Successful Recharge)' : 'Process Refund'}
         size="sm"
       >
         <div className="space-y-3">
           <p className="text-sm text-[#475569]">
-            Refund for txn <span className="font-mono">{refundModal?.txnId?.slice(-10)}</span> —{' '}
+            Refund for txn <span className="font-mono">{refundModal?.txnId?.slice(-10) || refundModal?._id?.slice(-10)}</span> —{' '}
             <strong>{formatCurrency(refundModal?.amount)}</strong>
           </p>
+
+          {refundModal?.status === 'SUCCESS' && (
+            <div className="p-3 bg-[#FFFBEB] border border-[#FDE68A] rounded-lg text-xs text-[#B45309] space-y-2">
+              <p className="font-semibold">⚠️ Caution: Successful Recharge</p>
+              <p>
+                This recharge was completed successfully with the provider. Refunding will return{' '}
+                {formatCurrency(refundModal?.amount)} to the retailer's wallet.
+              </p>
+              <label className="flex items-center gap-2 cursor-pointer pt-1 font-medium text-[#92400E]">
+                <input
+                  type="checkbox"
+                  checked={forceRefundConfirm}
+                  onChange={(e) => setForceRefundConfirm(e.target.checked)}
+                  className="rounded border-[#D97706] text-[#D97706] focus:ring-[#D97706]"
+                />
+                Confirm forced refund for this successful recharge
+              </label>
+            </div>
+          )}
+
           <Input
             label="Reason"
-            placeholder="Customer requested refund after failed delivery"
+            placeholder="Reason for refund..."
             value={refundReason}
             onChange={(e) => setRefundReason(e.target.value)}
           />
+
           <div className="flex gap-3 pt-2">
-            <Button variant="secondary" className="flex-1" onClick={() => setRefundModal(null)}>
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => {
+                setRefundModal(null)
+                setForceRefundConfirm(false)
+              }}
+            >
               Cancel
             </Button>
             <Button
               variant="warning"
               className="flex-1"
-              onClick={() => refundMutation.mutate({ txnId: refundModal._id, reason: refundReason })}
+              disabled={refundModal?.status === 'SUCCESS' && !forceRefundConfirm}
+              onClick={() =>
+                refundMutation.mutate({
+                  txnId: refundModal.txnId || refundModal._id,
+                  reason: refundReason,
+                  forceRefundSuccess: refundModal?.status === 'SUCCESS' ? forceRefundConfirm : false,
+                })
+              }
               loading={refundMutation.isPending}
             >
-              Process Refund
+              {refundModal?.status === 'SUCCESS' ? 'Force Refund' : 'Process Refund'}
             </Button>
           </div>
         </div>
