@@ -21,21 +21,36 @@ import { extractError } from '@/utils/format'
 import { RECHARGE_TYPES } from '@/utils/constants'
 import { useIsReady } from '@/hooks/useIsReady'
 
+const PROVIDER_OPTIONS = [
+  { value: '', label: 'None (Use Global Setting)' },
+  { value: 'mrobotics', label: 'MRobotics' },
+  { value: 'realrobo', label: 'RealRobo' },
+]
+
 const operatorSchema = z.object({
   name: z.string().min(1, 'Name required'),
   code: z.string().min(1, 'Code required'),
   type: z.string().min(1, 'Type required'),
   providerCode: z.string().optional(),
+  realroboProviderCode: z.string().optional(),
   minAmount: z.string().optional(),
   maxAmount: z.string().optional(),
   commission: z.string().optional(),
+  primaryProvider: z.string().optional(),
+  secondaryProvider: z.string().optional(),
 })
 
 function OperatorModal({ open, onClose, initial }) {
   const queryClient = useQueryClient()
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(operatorSchema),
-    defaultValues: initial || { type: 'MOBILE_PREPAID' },
+    defaultValues: initial
+      ? {
+          ...initial,
+          primaryProvider: initial.primaryProvider || '',
+          secondaryProvider: initial.secondaryProvider || '',
+        }
+      : { type: 'MOBILE_PREPAID', primaryProvider: '', secondaryProvider: '' },
   })
 
   const mutation = useMutation({
@@ -45,6 +60,8 @@ function OperatorModal({ open, onClose, initial }) {
         minAmount: data.minAmount ? Number(data.minAmount) : undefined,
         maxAmount: data.maxAmount ? Number(data.maxAmount) : undefined,
         commission: data.commission ? Number(data.commission) : undefined,
+        primaryProvider: data.primaryProvider || null,
+        secondaryProvider: data.secondaryProvider || null,
       }
       return initial
         ? operatorsApi.updateOperator(initial._id, payload)
@@ -72,7 +89,29 @@ function OperatorModal({ open, onClose, initial }) {
           <Input label="Max Amount" type="number" placeholder="5000" {...register('maxAmount')} />
           <Input label="Commission (%)" type="number" placeholder="2" {...register('commission')} />
         </div>
-        <Input label="Provider Code" placeholder="AIRTEL" {...register('providerCode')} />
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="MRobotics Code" placeholder="e.g. 5" {...register('providerCode')} />
+          <Input label="RealRobo Code" placeholder="e.g. 3" {...register('realroboProviderCode')} />
+        </div>
+
+        {/* Per-operator provider routing */}
+        <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 space-y-2">
+          <p className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Provider Routing</p>
+          <p className="text-[11px] text-[#94A3B8]">Override global provider priority for this operator only.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Primary Provider"
+              options={PROVIDER_OPTIONS}
+              {...register('primaryProvider')}
+            />
+            <Select
+              label="Secondary (Fallback)"
+              options={PROVIDER_OPTIONS}
+              {...register('secondaryProvider')}
+            />
+          </div>
+        </div>
+
         <div className="flex gap-3 pt-2">
           <Button variant="secondary" className="flex-1" onClick={onClose} type="button">Cancel</Button>
           <Button className="flex-1" type="submit" loading={mutation.isPending}>
@@ -224,7 +263,7 @@ export default function Operators() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-                      {['Name', 'Code', 'Type', 'Min', 'Max', 'Actions'].map((h) => (
+                      {['Name', 'Code', 'Type', 'Provider', 'Min', 'Max', 'Actions'].map((h) => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[#94A3B8] uppercase tracking-wide whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -235,6 +274,26 @@ export default function Operators() {
                         <td className="px-4 py-3 font-medium text-[#0F172A]">{op.name}</td>
                         <td className="px-4 py-3 font-mono text-xs text-[#475569]">{op.code}</td>
                         <td className="px-4 py-3"><Badge variant="primary">{op.type}</Badge></td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-1">
+                            {op.primaryProvider ? (
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                op.primaryProvider === 'mrobotics' ? 'bg-[#DBEAFE] text-[#2563EB]' : 'bg-[#DCFCE7] text-[#16A34A]'
+                              }`}>
+                                1° {op.primaryProvider === 'mrobotics' ? 'MRobotics' : 'RealRobo'}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#F1F5F9] text-[#94A3B8]">Global</span>
+                            )}
+                            {op.secondaryProvider && (
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                op.secondaryProvider === 'mrobotics' ? 'bg-[#DBEAFE] text-[#2563EB]' : 'bg-[#DCFCE7] text-[#16A34A]'
+                              }`}>
+                                2° {op.secondaryProvider === 'mrobotics' ? 'MRobotics' : 'RealRobo'}
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-[#475569]">₹{op.minAmount || '—'}</td>
                         <td className="px-4 py-3 text-[#475569]">₹{op.maxAmount || '—'}</td>
                         <td className="px-4 py-3">

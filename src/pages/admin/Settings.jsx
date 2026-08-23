@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Save, CheckCheck, ArrowUp, ArrowDown, Zap } from 'lucide-react'
+import { Save, CheckCheck, ArrowUp, ArrowDown, Zap, Route } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { settingsApi } from '@/api/settings'
+import { operatorsApi } from '@/api/operators'
 import Card, { CardHeader } from '@/components/ui/Card'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
@@ -152,6 +153,139 @@ function ProviderPriorityCard({ priority, onSave, saving }) {
   )
 }
 
+const PROVIDER_OPTIONS = [
+  { value: '', label: '— None (Global) —' },
+  { value: 'mrobotics', label: 'MRobotics' },
+  { value: 'realrobo', label: 'RealRobo' },
+]
+
+function PerOperatorRoutingCard({ ready }) {
+  const queryClient = useQueryClient()
+
+  const { data: operators = [], isLoading } = useQuery({
+    queryKey: ['operators-active-all'],
+    queryFn: () => operatorsApi.getOperators({ limit: 100 }),
+    select: (r) => r.data?.data?.items || [],
+    enabled: ready,
+  })
+
+  // local draft state: { [operatorId]: { primary, secondary } }
+  const [draft, setDraft] = useState({})
+
+  useEffect(() => {
+    if (operators.length > 0) {
+      const initial = {}
+      operators.forEach((op) => {
+        initial[op._id] = {
+          primary: op.primaryProvider || '',
+          secondary: op.secondaryProvider || '',
+        }
+      })
+      setDraft(initial)
+    }
+  }, [operators])
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const updates = operators.map((op) => {
+        const d = draft[op._id] || {}
+        return operatorsApi.updateOperator(op._id, {
+          primaryProvider: d.primary || null,
+          secondaryProvider: d.secondary || null,
+        })
+      })
+      return Promise.all(updates)
+    },
+    onSuccess: () => {
+      toast.success('Provider routing saved for all operators')
+      queryClient.invalidateQueries({ queryKey: ['operators'] })
+      queryClient.invalidateQueries({ queryKey: ['operators-active-all'] })
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const setField = (opId, field, value) => {
+    setDraft((prev) => ({ ...prev, [opId]: { ...prev[opId], [field]: value } }))
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Per-Operator Provider Routing"
+        subtitle="Set primary & secondary recharge provider for each operator. Overrides global priority."
+        icon={<Route size={16} className="text-[#7C3AED]" />}
+      />
+
+      {isLoading ? (
+        <div className="mt-4 space-y-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-12 bg-[#F1F5F9] rounded-xl animate-pulse" />
+          ))}
+        </div>
+      ) : operators.length === 0 ? (
+        <p className="text-sm text-[#94A3B8] mt-4">No operators found. Add operators first.</p>
+      ) : (
+        <div className="mt-4 space-y-0 rounded-xl border border-[#E2E8F0] overflow-hidden">
+          {/* Table header */}
+          <div className="grid grid-cols-[1fr_160px_160px] gap-3 px-4 py-2 bg-[#F8FAFC] border-b border-[#E2E8F0]">
+            <span className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">Operator</span>
+            <span className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">Primary</span>
+            <span className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">Secondary</span>
+          </div>
+
+          {operators.map((op, idx) => (
+            <div
+              key={op._id}
+              className={`grid grid-cols-[1fr_160px_160px] gap-3 items-center px-4 py-2.5 ${
+                idx % 2 === 0 ? 'bg-white' : 'bg-[#FAFAFA]'
+              } border-b border-[#E2E8F0] last:border-b-0`}
+            >
+              <div>
+                <p className="text-sm font-medium text-[#0F172A]">{op.name}</p>
+                <p className="text-[11px] text-[#94A3B8] font-mono">{op.code}</p>
+              </div>
+              <select
+                value={draft[op._id]?.primary || ''}
+                onChange={(e) => setField(op._id, 'primary', e.target.value)}
+                className="text-sm border border-[#E2E8F0] rounded-lg px-2.5 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-[#7C3AED] focus:border-[#7C3AED] bg-white text-[#0F172A]"
+              >
+                {PROVIDER_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <select
+                value={draft[op._id]?.secondary || ''}
+                onChange={(e) => setField(op._id, 'secondary', e.target.value)}
+                className="text-sm border border-[#E2E8F0] rounded-lg px-2.5 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-[#7C3AED] focus:border-[#7C3AED] bg-white text-[#0F172A]"
+              >
+                {PROVIDER_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-4 pt-4 border-t border-[#E2E8F0] flex items-center justify-between">
+        <p className="text-[11px] text-[#94A3B8]">
+          💡 "None" means the operator will use the global provider priority above.
+        </p>
+        <Button
+          size="sm"
+          leftIcon={<Save size={14} />}
+          loading={saveMutation.isPending}
+          onClick={() => saveMutation.mutate()}
+          className="bg-[#7C3AED] hover:bg-[#6D28D9]"
+        >
+          Save Routing
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
+
 const SETTING_GROUPS = [
   {
     label: 'Application',
@@ -166,6 +300,7 @@ const SETTING_GROUPS = [
     ],
   },
 ]
+
 
 export default function Settings() {
   const queryClient = useQueryClient()
@@ -277,11 +412,13 @@ export default function Settings() {
       ))}
 
      {/* additional implementation */}
-      {/* <ProviderPriorityCard
+      <ProviderPriorityCard
         priority={currentValues['recharge.provider.priority']}
         saving={saving['recharge.provider.priority']}
         onSave={handleSave}
-      /> */}
+      />
+
+      <PerOperatorRoutingCard ready={ready} />
 
       <Card>
         <CardHeader title="All Settings" subtitle="Raw settings view" />
@@ -302,7 +439,7 @@ export default function Settings() {
                   className="text-sm border border-[#E2E8F0] rounded px-2 py-1 w-40 focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
                 />
                 <button
-                  // onClick={() => handleSave(key)} // additional implementation
+                  onClick={() => handleSave(key)} // additional implementation
                   className="p-1.5 rounded hover:bg-[#DBEAFE] text-[#2563EB] transition-colors"
                   title="Save"
                 >

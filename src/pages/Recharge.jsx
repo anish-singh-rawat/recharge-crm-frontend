@@ -408,7 +408,7 @@ export default function Recharge() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-                        {['Txn ID', 'MRobotics Rc ID', 'Provider', 'Mobile', 'Operator', 'Circle', 'Amount', 'Status', 'Date'].map((h) => (
+                        {['Txn ID', 'Provider Rc ID', 'Provider', 'Mobile', 'Operator', 'Circle', 'Amount', 'Status', 'Date'].map((h) => (
                           <th
                             key={h}
                             className="px-4 py-3 text-left text-xs font-medium text-[#94A3B8] uppercase tracking-wide whitespace-nowrap"
