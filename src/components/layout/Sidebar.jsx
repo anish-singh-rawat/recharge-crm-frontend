@@ -15,6 +15,7 @@ import {
   LogOut,
   Wifi,
   BookOpen,
+  MessageSquare,
 } from 'lucide-react'
 import clsx from 'clsx'
 import useAuthStore from '@/store/authStore'
@@ -52,6 +53,7 @@ export default function Sidebar({ collapsed, onToggle, unreadCount = 0 }) {
     { to: '/api-docs', label: 'API Docs', icon: BookOpen, roles: ['admin', 'super_admin', 'retailer'], requireApiAccess: true },
     // { to: '/admin/logs', label: 'Logs', icon: FileText, roles: ['admin', 'super_admin'] },
     { to: '/admin/provider', label: 'Provider', icon: Wifi, roles: ['admin', 'super_admin'] },
+    { to: '/admin/whatsapp', label: 'WhatsApp', icon: MessageSquare, roles: ['admin', 'super_admin'] },
     { to: '/admin/settings', label: 'Settings', icon: Settings, roles: ['admin', 'super_admin'] },
   ]
 
