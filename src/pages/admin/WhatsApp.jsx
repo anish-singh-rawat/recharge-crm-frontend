@@ -14,6 +14,7 @@ import {
   Info,
   Clock,
   Sparkles,
+  Wifi,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { whatsappApi } from '@/api/whatsapp'
@@ -22,6 +23,7 @@ import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { useIsReady } from '@/hooks/useIsReady'
 import { getAccessToken } from '@/lib/axios'
+import { useSocket } from '@/hooks/useSocket'
 
 const QR_CYCLE_SECONDS = 50
 const BASE_URL = import.meta.env.VITE_API_URL || 'https://api.rechpays.in/api/v1'
@@ -35,6 +37,11 @@ export default function WhatsApp() {
   const [timeLeft, setTimeLeft] = useState(QR_CYCLE_SECONDS)
   const isAutoRegenerating = useRef(false)
 
+  // Stage state machine from wpp-connection AddDevice: 'idle' | 'qr' | 'scanning' | 'connected'
+  const [stage, setStage] = useState('idle')
+  const stageRef = useRef('idle')
+  const qrWasShownRef = useRef(false)
+
   // SSE real-time state
   const [sseStatus, setSseStatus] = useState(null)
   const [sseQr, setSseQr] = useState(null)
@@ -42,13 +49,81 @@ export default function WhatsApp() {
   const [sseUserPhone, setSseUserPhone] = useState(null)
   const eventSourceRef = useRef(null)
 
+  // Centralized real-time status handler (from Socket.IO, SSE, or Polling)
+  const handleIncomingStatus = useCallback((data) => {
+    if (!data) return
+    const status = data.status
+    const qr = data.qr
+    const isReady = data.isReady
+    const phone = data.userPhone
+
+    if (status) setSseStatus(status)
+    if (qr !== undefined) setSseQr(qr)
+    if (data.qrGeneratedAt !== undefined) setSseQrGeneratedAt(data.qrGeneratedAt)
+    if (phone !== undefined) setSseUserPhone(phone)
+
+    if (isReady || status === 'connected') {
+      stageRef.current = 'connected'
+      setStage('connected')
+      return
+    }
+
+    if (status === 'qr_ready' || qr) {
+      qrWasShownRef.current = true
+      if (stageRef.current !== 'scanning') {
+        stageRef.current = 'qr'
+        setStage('qr')
+      }
+      return
+    }
+
+    // Exact condition from wpp-connection AddDevice.jsx (lines 108 & 125):
+    // if ((status === 'connecting' || status.startsWith('loading')) && qrWasShownRef.current) -> stage = 'scanning'
+    if ((status === 'connecting' || (status && String(status).startsWith('loading'))) && qrWasShownRef.current) {
+      stageRef.current = 'scanning'
+      setStage('scanning')
+      return
+    }
+
+    if (status === 'disconnected') {
+      qrWasShownRef.current = false
+      stageRef.current = 'idle'
+      setStage('idle')
+      return
+    }
+  }, [])
+
+  // Socket.IO real-time updates for instant 0ms latency
+  useSocket({
+    'whatsapp:status': (data) => {
+      handleIncomingStatus(data)
+      queryClient.setQueryData(['whatsapp', 'status'], (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          data: {
+            ...(old.data || {}),
+            data: { ...(old.data?.data || {}), ...data },
+          },
+        }
+      })
+    },
+    'whatsapp:qr': (data) => {
+      handleIncomingStatus(data)
+    },
+    'whatsapp:connected': (data) => {
+      handleIncomingStatus(data)
+    },
+  })
+
   // Connect SSE stream for real-time updates
   useEffect(() => {
     if (!ready) return
 
     const connectSSE = () => {
-      const token = getAccessToken()
-      if (!token) return
+      const token = getAccessToken() || ''
+      const refreshToken = localStorage.getItem('refreshToken') || ''
+      if (!token && !refreshToken) return
 
       // Close existing connection
       if (eventSourceRef.current) {
@@ -56,19 +131,15 @@ export default function WhatsApp() {
         eventSourceRef.current = null
       }
 
-      const url = `${BASE_URL}/whatsapp/stream?token=${encodeURIComponent(token)}`
-      const es = new EventSource(url)
+      const url = `${BASE_URL}/whatsapp/stream?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}`
+      const es = new EventSource(url, { withCredentials: true })
       eventSourceRef.current = es
 
       es.onmessage = (event) => {
         try {
           const parsed = JSON.parse(event.data)
           const data = parsed.data || parsed
-
-          if (data.status) setSseStatus(data.status)
-          if (data.qr !== undefined) setSseQr(data.qr)
-          if (data.qrGeneratedAt !== undefined) setSseQrGeneratedAt(data.qrGeneratedAt)
-          if (data.userPhone !== undefined) setSseUserPhone(data.userPhone)
+          handleIncomingStatus(data)
 
           queryClient.setQueryData(['whatsapp', 'status'], (old) => {
             if (!old) return old
@@ -104,7 +175,7 @@ export default function WhatsApp() {
         eventSourceRef.current = null
       }
     }
-  }, [ready, queryClient])
+  }, [ready, queryClient, handleIncomingStatus])
 
   // Fallback polling (slower, for when SSE is down)
   const { data: statusData, isLoading, isFetching, refetch } = useQuery({
@@ -114,11 +185,18 @@ export default function WhatsApp() {
     enabled: ready,
     refetchInterval: (data) => {
       if (data?.status === 'qr_ready' || data?.status === 'connecting' || data?.status === 'launching') {
-        return 4000
+        return 2000
       }
-      return 15000
+      return 6000
     },
   })
+
+  // Sync status from polling query
+  useEffect(() => {
+    if (statusData) {
+      handleIncomingStatus(statusData)
+    }
+  }, [statusData, handleIncomingStatus])
 
   // Merge SSE + polling data (SSE takes priority)
   const mergedStatus = sseStatus || statusData?.status || 'disconnected'
@@ -127,11 +205,16 @@ export default function WhatsApp() {
   const userPhone = sseUserPhone !== null ? sseUserPhone : statusData?.userPhone
   const qrGeneratedAt = sseQrGeneratedAt !== null ? sseQrGeneratedAt : statusData?.qrGeneratedAt
 
+  // Exact scanning detection matching wpp-connection AddDevice
+  const isScanning = stage === 'scanning' || ((mergedStatus === 'connecting' || (mergedStatus && String(mergedStatus).startsWith('loading'))) && qrWasShownRef.current)
+
   // Connect / Initial QR mutation
   const connectMutation = useMutation({
     mutationFn: () => whatsappApi.connect(),
-    onSuccess: () => {
-      toast.success('WhatsApp initialized. Scan the QR code.')
+    onSuccess: (res) => {
+      const data = res.data?.data || res.data || {}
+      handleIncomingStatus(data)
+      toast.success('WhatsApp QR generated! Scan now.')
       setTimeLeft(QR_CYCLE_SECONDS)
       queryClient.invalidateQueries({ queryKey: ['whatsapp', 'status'] })
     },
@@ -143,8 +226,15 @@ export default function WhatsApp() {
   // Manual / Auto Regenerate QR mutation
   const regenerateMutation = useMutation({
     mutationFn: () => whatsappApi.regenerateQR(),
-    onSuccess: () => {
-      toast.success('Fresh WhatsApp QR code generated!')
+    onMutate: () => {
+      stageRef.current = 'idle'
+      setStage('idle')
+      qrWasShownRef.current = false
+    },
+    onSuccess: (res) => {
+      const data = res.data?.data || res.data || {}
+      handleIncomingStatus(data)
+      toast.success('Fresh WhatsApp QR code ready!')
       setTimeLeft(QR_CYCLE_SECONDS)
       isAutoRegenerating.current = false
       queryClient.invalidateQueries({ queryKey: ['whatsapp', 'status'] })
@@ -159,8 +249,11 @@ export default function WhatsApp() {
   const disconnectMutation = useMutation({
     mutationFn: () => whatsappApi.disconnect(),
     onSuccess: () => {
-      toast.success('WhatsApp disconnected successfully.')
+      toast.success('WhatsApp disconnected and unlinked from your phone!')
       setTimeLeft(QR_CYCLE_SECONDS)
+      qrWasShownRef.current = false
+      stageRef.current = 'idle'
+      setStage('idle')
       setSseStatus(null)
       setSseQr(null)
       setSseQrGeneratedAt(null)
@@ -255,42 +348,17 @@ export default function WhatsApp() {
             WhatsApp Management
           </h1>
           <p className="text-sm text-[#94A3B8] mt-0.5">
-            Real-time WhatsApp Web QR connection and direct customer messaging
+            Connect your WhatsApp Web to send recharge updates and customer alerts
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="flex items-center gap-1.5"
-          >
-            <RefreshCw size={14} className={isFetching ? 'animate-spin text-[#2563EB]' : ''} />
-            Refresh Status
-          </Button>
-
-          {!isConnected && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => regenerateMutation.mutate()}
-              disabled={isBusy}
-              className="flex items-center gap-1.5 border-[#2563EB] text-[#2563EB] hover:bg-[#EFF6FF]"
-              title="Manually generate a fresh new QR code right now"
-            >
-              <Sparkles size={14} className={regenerateMutation.isPending ? 'animate-spin' : ''} />
-              {regenerateMutation.isPending ? 'Regenerating...' : 'Regenerate QR'}
-            </Button>
-          )}
-
+        <div className="flex items-center gap-2">
           {isConnected ? (
             <Button
               variant="danger"
               size="sm"
               onClick={() => {
-                if (window.confirm('Are you sure you want to disconnect and clear the WhatsApp session?')) {
+                if (window.confirm('Are you sure you want to disconnect WhatsApp? This will unlink this device from your phone.')) {
                   disconnectMutation.mutate()
                 }
               }}
@@ -302,280 +370,302 @@ export default function WhatsApp() {
             </Button>
           ) : (
             <Button
-              variant="primary"
+              variant="secondary"
               size="sm"
-              onClick={() => connectMutation.mutate()}
+              onClick={() => regenerateMutation.mutate()}
               disabled={isBusy}
-              className="flex items-center gap-1.5"
+              className="flex items-center gap-1.5 border-[#2563EB] text-[#2563EB] hover:bg-[#EFF6FF]"
             >
-              <QrCode size={14} />
-              {isBusy ? 'Starting...' : 'Connect WhatsApp'}
+              <RefreshCw size={14} className={isBusy ? 'animate-spin' : ''} />
+              {isBusy ? 'Generating...' : 'Refresh QR'}
             </Button>
           )}
         </div>
       </div>
 
-      {/* Status Overview Card */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="md:col-span-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div
-                className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
-                  isConnected
-                    ? 'bg-[#DCFCE7] text-[#16A34A]'
-                    : mergedStatus === 'qr_ready'
-                    ? 'bg-[#FEF3C7] text-[#D97706]'
-                    : mergedStatus === 'connecting'
-                    ? 'bg-[#DBEAFE] text-[#2563EB]'
-                    : 'bg-[#F1F5F9] text-[#64748B]'
-                }`}
-              >
-                {isConnected ? (
-                  <CheckCircle2 size={24} />
-                ) : mergedStatus === 'qr_ready' ? (
-                  <QrCode size={24} className="animate-pulse" />
-                ) : mergedStatus === 'connecting' ? (
-                  <RefreshCw size={24} className="animate-spin" />
-                ) : (
-                  <AlertCircle size={24} />
-                )}
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-semibold text-[#0F172A]">
-                    WhatsApp Connection Status
-                  </h3>
-                  {isConnected && (
-                    <Badge variant="success" className="capitalize">
-                      Connected
-                    </Badge>
-                  )}
-                  {mergedStatus === 'qr_ready' && (
-                    <Badge variant="warning" className="capitalize">
-                      QR Ready — Scan Now
-                    </Badge>
-                  )}
-                  {mergedStatus === 'connecting' && (
-                    <Badge variant="info" className="capitalize">
-                      Connecting...
-                    </Badge>
-                  )}
-                  {mergedStatus === 'launching' && (
-                    <Badge variant="info" className="capitalize">
-                      Launching...
-                    </Badge>
-                  )}
-                  {mergedStatus === 'disconnected' && (
-                    <Badge variant="secondary" className="capitalize">
-                      Disconnected
-                    </Badge>
-                  )}
-                </div>
-
-                <p className="text-xs text-[#64748B] mt-1">
-                  {isConnected
-                    ? `Linked phone: +${userPhone || 'Active'} • Ready to send messages`
-                    : mergedStatus === 'qr_ready'
-                    ? 'Real-time QR code is active. Point your camera to link.'
-                    : mergedStatus === 'connecting'
-                    ? 'Establishing secure connection with WhatsApp Web...'
-                    : mergedStatus === 'launching'
-                    ? 'Initializing WhatsApp connection...'
-                    : 'WhatsApp is not connected. Click "Connect WhatsApp" or "Regenerate QR" to link.'}
-                </p>
-              </div>
-            </div>
-
-            {isConnected && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F0FDF4] border border-[#86EFAC] rounded-lg shrink-0">
-                <ShieldCheck size={16} className="text-[#16A34A]" />
-                <span className="text-xs font-medium text-[#16A34A]">Auto-Session Maintained</span>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        <Card>
-          <CardHeader title="Session Details" />
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between py-1 border-b border-[#F1F5F9]">
-              <span className="text-[#64748B]">Auto-Regenerate:</span>
-              <span className="font-semibold text-[#16A34A]">Active (Every 50s)</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-[#F1F5F9]">
-              <span className="text-[#64748B]">Persistent Auth:</span>
-              <span className="font-semibold text-[#16A34A]">Enabled</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-[#F1F5F9]">
-              <span className="text-[#64748B]">Live Updates:</span>
-              <span className="font-semibold text-[#16A34A]">SSE Connected</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-[#F1F5F9]">
-              <span className="text-[#64748B]">Anti-Ban Shield:</span>
-              <span className="font-semibold text-[#16A34A] flex items-center gap-1">
-                <ShieldCheck size={12} /> Active
-              </span>
-            </div>
-            <div className="flex justify-between py-1">
-              <span className="text-[#64748B]">Access:</span>
-              <span className="font-semibold text-[#0F172A]">Admin & Super Admin</span>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* QR Code Section (if not connected) */}
-      {!isConnected && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-5">
-            <Card className="flex flex-col items-center justify-center p-6 text-center">
-              <div className="flex items-center justify-between w-full mb-3 px-1">
-                <h3 className="font-bold text-[#0F172A] text-sm">Scan WhatsApp QR</h3>
-                {qrImage && (
-                  <button
-                    type="button"
-                    onClick={() => regenerateMutation.mutate()}
-                    disabled={isBusy}
-                    className="text-xs text-[#2563EB] hover:text-[#1D4ED8] font-medium flex items-center gap-1"
-                    title="Click to generate a new QR immediately"
-                  >
-                    <Sparkles size={12} />
-                    Regenerate Now
-                  </button>
-                )}
-              </div>
-
-              {qrImage ? (
-                <div className="space-y-3 w-full flex flex-col items-center">
-                  <div className="p-3 bg-white border-2 border-[#2563EB]/30 rounded-2xl shadow-sm inline-block relative group">
-                    <img
-                      src={qrImage}
-                      alt="WhatsApp QR Code"
-                      className="w-56 h-56 rounded-lg object-contain"
-                    />
-
-                    {/* Overlay when regenerating */}
-                    {isBusy && (
-                      <div className="absolute inset-0 bg-white/80 rounded-2xl flex flex-col items-center justify-center backdrop-blur-xs">
-                        <RefreshCw className="animate-spin text-[#2563EB]" size={28} />
-                        <span className="text-xs font-semibold text-[#0F172A] mt-2">
-                          Generating fresh QR...
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Countdown bar */}
-                  <div className="w-56 space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px] text-[#64748B]">
-                      <span className="flex items-center gap-1 font-medium text-[#2563EB]">
-                        <Clock size={12} />
-                        {timeLeft > 0 ? `Expires in ${timeLeft}s` : 'Refreshing new QR...'}
-                      </span>
-                      <span className="text-[10px] text-[#94A3B8]">Auto-updates</span>
-                    </div>
-
-                    <div className="w-full bg-[#E2E8F0] h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="bg-[#2563EB] h-full transition-all duration-1000 ease-linear rounded-full"
-                        style={{ width: `${(timeLeft / QR_CYCLE_SECONDS) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => regenerateMutation.mutate()}
-                    disabled={isBusy}
-                    className="w-56 mt-1 flex items-center justify-center gap-1.5 text-xs text-[#2563EB] border-[#BFDBFE]"
-                  >
-                    <Sparkles size={13} className={regenerateMutation.isPending ? 'animate-spin' : ''} />
-                    {regenerateMutation.isPending ? 'Regenerating...' : 'Regenerate QR Code'}
-                  </Button>
-                </div>
+      {/* Connection Status Banner */}
+      <Card className="py-3 px-4 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                isConnected
+                  ? 'bg-[#DCFCE7] text-[#16A34A]'
+                  : isScanning
+                  ? 'bg-[#EFF6FF] text-[#2563EB]'
+                  : qrImage
+                  ? 'bg-[#FEF3C7] text-[#D97706]'
+                  : 'bg-[#F1F5F9] text-[#64748B]'
+              }`}
+            >
+              {isConnected ? (
+                <CheckCircle2 size={20} />
+              ) : isScanning ? (
+                <RefreshCw size={20} className="animate-spin text-[#2563EB]" />
+              ) : qrImage ? (
+                <QrCode size={20} />
               ) : (
-                <div className="w-56 h-56 rounded-2xl border-2 border-dashed border-[#CBD5E1] flex flex-col items-center justify-center p-4 bg-[#F8FAFC]">
-                  {isBusy ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <RefreshCw className="animate-spin text-[#2563EB]" size={28} />
-                      <p className="text-xs text-[#64748B]">Generating Real-Time QR...</p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 text-center">
-                      <QrCode size={36} className="text-[#94A3B8]" />
-                      <p className="text-xs text-[#64748B]">QR code inactive</p>
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        onClick={() => connectMutation.mutate()}
-                        className="mt-1"
-                      >
-                        Generate QR
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                <AlertCircle size={20} />
               )}
-            </Card>
-          </div>
+            </div>
 
-          <div className="lg:col-span-7">
-            <Card className="h-full flex flex-col justify-center">
-              <CardHeader title="How to Connect WhatsApp" />
-              <div className="space-y-4 text-xs sm:text-sm text-[#334155] mt-2">
-                <div className="flex items-start gap-3 p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                  <div className="w-6 h-6 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                    1
-                  </div>
-                  <div>
-                    <p className="font-semibold text-[#0F172A]">Open WhatsApp</p>
-                    <p className="text-xs text-[#64748B]">Open WhatsApp on your mobile phone.</p>
-                  </div>
-                </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sm text-[#0F172A]">
+                  {isConnected
+                    ? 'WhatsApp Connected'
+                    : isScanning
+                    ? 'Connecting to WhatsApp...'
+                    : qrImage
+                    ? 'Scan QR Code to Connect'
+                    : 'WhatsApp Not Connected'}
+                </span>
 
-                <div className="flex items-start gap-3 p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                  <div className="w-6 h-6 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                    2
-                  </div>
-                  <div>
-                    <p className="font-semibold text-[#0F172A]">Go to Linked Devices</p>
-                    <p className="text-xs text-[#64748B]">
-                      Tap <b>Menu (⋮)</b> or <b>Settings</b> &gt; <b>Linked Devices</b>.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                  <div className="w-6 h-6 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                    3
-                  </div>
-                  <div>
-                    <p className="font-semibold text-[#0F172A]">Link a Device</p>
-                    <p className="text-xs text-[#64748B]">
-                      Tap <b>Link a Device</b> and scan the QR code on the left.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 p-3 bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg text-xs text-[#1D4ED8]">
-                  <Info size={16} className="shrink-0 text-[#2563EB]" />
-                  <span>
-                    The QR code automatically refreshes every 50 seconds. You can also click <b>Regenerate QR</b> at any moment.
+                {isConnected ? (
+                  <Badge variant="success">Online</Badge>
+                ) : isScanning ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-pulse-dot" />
+                    Connecting…
                   </span>
-                </div>
+                ) : qrImage ? (
+                  <Badge variant="warning">Scan QR</Badge>
+                ) : (
+                  <Badge variant="secondary">Offline</Badge>
+                )}
               </div>
-            </Card>
+
+              <p className="text-xs text-[#64748B] mt-0.5">
+                {isConnected
+                  ? `Linked: +${userPhone || 'Active'} • Ready to send messages`
+                  : isScanning
+                  ? 'QR code scanned! Completing secure handshake...'
+                  : qrImage
+                  ? `QR active • Auto-refreshes in ${timeLeft}s`
+                  : 'Click "Refresh QR" to generate a code for your phone'}
+              </p>
+            </div>
           </div>
+        </div>
+      </Card>
+
+      {/* Steps Indicator (When Not Connected) */}
+      {!isConnected && (
+        <div className="steps mb-4 max-w-xl mx-auto">
+          {['Create', 'Scan QR', 'Connected'].map((s, i) => {
+            const stepIndex = isConnected ? 2 : 1
+            const isDone = stepIndex > i
+            const isActive = stepIndex === i
+            return (
+              <div key={s} className={`step${isActive ? ' active' : ''}${isDone ? ' done' : ''}`}>
+                <div className="step-circle">
+                  {isDone ? <CheckCircle2 size={16} /> : i + 1}
+                </div>
+                <div className="step-label">{s}</div>
+              </div>
+            )
+          })}
         </div>
       )}
 
-      {/* Send Message Section */}
+      {/* QR Code / Scanning Section */}
+      {!isConnected && (
+        isScanning ? (
+          /* Connecting / Scanning Card in Application's Primary Blue theme */
+          <Card className="max-w-xl mx-auto p-0 overflow-hidden border-[#BFDBFE] shadow-sm animate-in fade-in duration-300">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#F1F5F9] bg-[#F8FAFC]">
+              <div className="flex items-center gap-2 font-bold text-[#0F172A] text-sm">
+                <Wifi size={18} className="text-[#2563EB]" />
+                <span>Connecting to WhatsApp</span>
+              </div>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
+                <span className="w-2 h-2 rounded-full bg-[#2563EB] animate-pulse-dot" />
+                Connecting…
+              </span>
+            </div>
+
+            <div className="p-10 flex flex-col items-center justify-center text-center space-y-6">
+              {/* Application Blue theme circular ring loader */}
+              <div className="relative w-24 h-24 my-1">
+                <svg className="w-24 h-24 absolute top-0 left-0" viewBox="0 0 96 96">
+                  <circle cx="48" cy="48" r="42" fill="none" stroke="#DBEAFE" strokeWidth="6" />
+                  <circle
+                    cx="48" cy="48" r="42"
+                    fill="none"
+                    stroke="#2563EB"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeDasharray="264"
+                    strokeDashoffset="66"
+                    className="origin-center animate-wa-spin"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-[#EFF6FF] flex items-center justify-center text-[#2563EB]">
+                    <Smartphone size={24} className="text-[#2563EB]" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Status text */}
+              <div className="space-y-1">
+                <h4 className="font-bold text-[#0F172A] text-base">
+                  QR Code Scanned Successfully
+                </h4>
+                <p className="text-xs text-[#64748B] max-w-sm">
+                  Connecting to WhatsApp… Keep the app open on your phone.
+                </p>
+                {mergedStatus && String(mergedStatus).startsWith('loading') && (
+                  <p className="text-[#2563EB] text-xs font-semibold mt-2">
+                    Loading… {String(mergedStatus).match(/\d+/)?.[0] ?? ''}%
+                  </p>
+                )}
+              </div>
+
+              {/* Blue theme progress bouncing dots */}
+              <div className="flex items-center gap-2">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="w-2 h-2 rounded-full bg-[#2563EB]"
+                    style={{ animation: `bounce-dot 1.2s ease-in-out ${i * 0.2}s infinite` }}
+                  />
+                ))}
+              </div>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 max-w-4xl mx-auto">
+            <div className="md:col-span-6 flex justify-center">
+              <Card className="flex flex-col items-center justify-center p-6 text-center w-full max-w-sm">
+                <div className="flex items-center justify-between w-full mb-3 px-1">
+                  <h3 className="font-bold text-[#0F172A] text-sm">
+                    Scan with WhatsApp
+                  </h3>
+                  {qrImage && (
+                    <button
+                      type="button"
+                      onClick={() => regenerateMutation.mutate()}
+                      disabled={isBusy}
+                      className="text-xs text-[#2563EB] hover:text-[#1D4ED8] font-medium flex items-center gap-1"
+                      title="Generate new QR"
+                    >
+                      <RefreshCw size={12} className={isBusy ? 'animate-spin' : ''} />
+                      New QR
+                    </button>
+                  )}
+                </div>
+
+                {qrImage ? (
+                  <div className="space-y-3 w-full flex flex-col items-center">
+                    <div className="p-3 bg-white border-2 border-[#2563EB]/20 rounded-2xl shadow-xs inline-block relative">
+                      <img
+                        src={qrImage}
+                        alt="WhatsApp QR Code"
+                        className="w-52 h-52 rounded-lg object-contain"
+                      />
+
+                      {isBusy && (
+                        <div className="absolute inset-0 bg-white/85 rounded-2xl flex flex-col items-center justify-center backdrop-blur-xs">
+                          <RefreshCw className="animate-spin text-[#2563EB]" size={26} />
+                          <span className="text-xs font-semibold text-[#0F172A] mt-2">
+                            Updating QR...
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="w-52 space-y-1">
+                      <div className="flex items-center justify-between text-[11px] text-[#64748B]">
+                        <span className="flex items-center gap-1 font-medium text-[#2563EB]">
+                          <Clock size={11} />
+                          {timeLeft > 0 ? `Expires in ${timeLeft}s` : 'Refreshing...'}
+                        </span>
+                        <span className="text-[10px] text-[#94A3B8]">Auto-updates</span>
+                      </div>
+
+                      <div className="w-full bg-[#E2E8F0] h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="bg-[#2563EB] h-full transition-all duration-1000 ease-linear rounded-full"
+                          style={{ width: `${(timeLeft / QR_CYCLE_SECONDS) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-52 h-52 rounded-2xl border-2 border-dashed border-[#CBD5E1] flex flex-col items-center justify-center p-4 bg-[#F8FAFC]">
+                    {isBusy ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <RefreshCw className="animate-spin text-[#2563EB]" size={26} />
+                        <p className="text-xs text-[#64748B]">Generating QR...</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-center">
+                        <QrCode size={32} className="text-[#94A3B8]" />
+                        <p className="text-xs text-[#64748B]">No active QR</p>
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() => connectMutation.mutate()}
+                          className="mt-1"
+                        >
+                          Generate QR
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            <div className="md:col-span-6 flex">
+              <Card className="w-full flex flex-col justify-center">
+                <CardHeader title="How to Connect" />
+                <div className="space-y-3.5 text-xs text-[#334155] mt-2">
+                  <div className="flex items-start gap-3 p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+                    <div className="w-6 h-6 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                      1
+                    </div>
+                    <div>
+                      <p className="font-semibold text-[#0F172A]">Open WhatsApp</p>
+                      <p className="text-xs text-[#64748B]">Open WhatsApp on your mobile phone</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+                    <div className="w-6 h-6 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                      2
+                    </div>
+                    <div>
+                      <p className="font-semibold text-[#0F172A]">Linked Devices</p>
+                      <p className="text-xs text-[#64748B]">
+                        Tap <b>Menu (⋮)</b> or <b>Settings</b> &gt; <b>Linked Devices</b>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+                    <div className="w-6 h-6 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                      3
+                    </div>
+                    <div>
+                      <p className="font-semibold text-[#0F172A]">Scan QR Code</p>
+                      <p className="text-xs text-[#64748B]">
+                        Tap <b>Link a Device</b> and point camera at the QR on the left
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )
+      )}
+
+      {/* Send WhatsApp Message Section */}
       <Card>
         <CardHeader
-          title="Send One-to-One WhatsApp Message"
+          title="Send WhatsApp Message"
           action={
             !isConnected && (
               <span className="text-xs text-[#DC2626] font-medium flex items-center gap-1">
@@ -607,7 +697,7 @@ export default function WhatsApp() {
                 />
               </div>
               <p className="text-[11px] text-[#94A3B8] mt-1">
-                Enter 10-digit Indian mobile number or with country code
+                Enter 10-digit Indian mobile number
               </p>
             </div>
 
@@ -664,7 +754,7 @@ export default function WhatsApp() {
             </div>
             <textarea
               rows={4}
-              placeholder="Type your WhatsApp message here..."
+              placeholder="Type your message here..."
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
               disabled={!isConnected || sendMutation.isPending}
@@ -673,7 +763,7 @@ export default function WhatsApp() {
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-3 pt-1">
             <Button
               type="button"
               variant="secondary"
@@ -695,56 +785,10 @@ export default function WhatsApp() {
               className="flex items-center gap-1.5"
             >
               <Send size={14} className={sendMutation.isPending ? 'animate-spin' : ''} />
-              {sendMutation.isPending ? 'Sending...' : 'Send WhatsApp Message'}
+              {sendMutation.isPending ? 'Sending...' : 'Send Message'}
             </Button>
           </div>
         </form>
-      </Card>
-
-      {/* Anti-Ban & Account Safety Guidelines */}
-      <Card className="border-[#BBF7D0] bg-[#F0FDF4]/40">
-        <div className="flex items-center gap-2 mb-3">
-          <ShieldCheck className="text-[#16A34A]" size={20} />
-          <h3 className="text-sm font-bold text-[#14532D]">
-            Anti-Ban Protection Engine & Safety Recommendations
-          </h3>
-        </div>
-        <p className="text-xs text-[#166534] mb-3">
-          Our backend engine automatically protects your WhatsApp account using human simulation algorithms:
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs mb-4">
-          <div className="p-2.5 bg-white/80 rounded-lg border border-[#DCFCE7]">
-            <span className="font-semibold text-[#14532D] block mb-0.5">🖥️ Official Client Emulation</span>
-            <p className="text-[#166534]">
-              Spoofs genuine macOS Desktop WhatsApp identity. WhatsApp servers cannot detect custom third-party bot signatures.
-            </p>
-          </div>
-          <div className="p-2.5 bg-white/80 rounded-lg border border-[#DCFCE7]">
-            <span className="font-semibold text-[#14532D] block mb-0.5">✍️ Human Typing Simulation</span>
-            <p className="text-[#166534]">
-              Subscribes to recipient presence and shows &quot;typing...&quot; for a natural 1.5s–3.5s before message delivery.
-            </p>
-          </div>
-          <div className="p-2.5 bg-white/80 rounded-lg border border-[#DCFCE7]">
-            <span className="font-semibold text-[#14532D] block mb-0.5">⏱️ Flood Rate-Limiter Queue</span>
-            <p className="text-[#166534]">
-              Sequential outbox queue with randomized 2.5s–4.5s delays between consecutive messages to prevent bulk spam bans.
-            </p>
-          </div>
-        </div>
-
-        <div className="p-3 bg-[#FEF3C7]/60 border border-[#FDE68A] rounded-lg text-xs text-[#92400E] space-y-1">
-          <p className="font-semibold flex items-center gap-1">
-            <AlertCircle size={14} /> WhatsApp Policy Best Practices to Avoid Account Restriction:
-          </p>
-          <ul className="list-disc pl-5 space-y-0.5 text-[11.5px]">
-            <li><b>Contact Saving:</b> Ask customers to save your WhatsApp number in their contacts. WhatsApp rarely blocks numbers that recipients have saved.</li>
-            <li><b>Warm Up New Numbers:</b> If connecting a fresh number, start with only 10–20 messages per day for the first week before increasing volume.</li>
-            <li><b>Avoid Mass Broadcast Spam:</b> Do not blast identical messages to hundreds of unsaved numbers within minutes.</li>
-            <li><b>Quality Content:</b> Avoid spam keywords (e.g. &quot;Lottery&quot;, &quot;100% Free cash&quot;, etc.) that trigger WhatsApp user reports.</li>
-          </ul>
-        </div>
       </Card>
     </div>
   )

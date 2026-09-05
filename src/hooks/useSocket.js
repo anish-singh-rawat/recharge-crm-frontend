@@ -65,8 +65,10 @@ export const useSocket = (handlers = {}) => {
       'notification:broadcast',
     ]
 
+    const allEvents = Array.from(new Set([...eventNames, ...Object.keys(handlersRef.current)]))
+
     const wrappedHandlers = {}
-    eventNames.forEach((event) => {
+    allEvents.forEach((event) => {
       wrappedHandlers[event] = (payload) => {
         if (handlersRef.current[event]) {
           handlersRef.current[event](payload)
@@ -76,7 +78,7 @@ export const useSocket = (handlers = {}) => {
     })
 
     return () => {
-      eventNames.forEach((event) => {
+      allEvents.forEach((event) => {
         socket.off(event, wrappedHandlers[event])
       })
     }
