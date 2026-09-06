@@ -34,6 +34,7 @@ import OperatorsPlans from '@/pages/retailer/OperatorsPlans'
 import Settings from '@/pages/admin/Settings'
 import Provider from '@/pages/admin/Provider'
 import WhatsApp from '@/pages/admin/WhatsApp'
+import ExcelOrders from '@/pages/admin/ExcelOrders'
 import Maintenance from '@/pages/Maintenance'
 
 const queryClient = new QueryClient({
@@ -208,6 +209,7 @@ export default function App() {
                       {/* <Route path="/admin/logs" element={<Logs />} /> */}
                       <Route path="/admin/provider" element={<Provider />} />
                       <Route path="/admin/whatsapp" element={<WhatsApp />} />
+                      <Route path="/admin/excel-orders" element={<ExcelOrders />} />
                     </Route>
                   </Route>
                 </Route>

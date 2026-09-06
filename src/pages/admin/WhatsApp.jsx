@@ -721,7 +721,7 @@ export default function WhatsApp() {
                   type="button"
                   onClick={() =>
                     applyTemplate(
-                      'Dear Customer, your wallet has been credited with ₹500.00. Current Balance: ₹1,250.00. - RechargeCRM'
+                      'Dear Customer, your wallet has been credited with ₹500.00. Current Balance: ₹1,250.00. - RechPays'
                     )
                   }
                   className="px-2.5 py-1 text-xs bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#334155] rounded-md transition-colors"

@@ -3,13 +3,16 @@ import { X } from 'lucide-react'
 import clsx from 'clsx'
 
 export default function Modal({
-  open,
+  open: propOpen,
+  isOpen,
   onClose,
   title,
   children,
   size = 'md',
   footer,
 }) {
+  const open = propOpen ?? isOpen
+
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden'

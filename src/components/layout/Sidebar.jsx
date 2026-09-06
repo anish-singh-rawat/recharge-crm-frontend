@@ -16,6 +16,7 @@ import {
   Wifi,
   BookOpen,
   MessageSquare,
+  FileSpreadsheet,
 } from 'lucide-react'
 import clsx from 'clsx'
 import useAuthStore from '@/store/authStore'
@@ -54,6 +55,7 @@ export default function Sidebar({ collapsed, onToggle, unreadCount = 0 }) {
     // { to: '/admin/logs', label: 'Logs', icon: FileText, roles: ['admin', 'super_admin'] },
     { to: '/admin/provider', label: 'Provider', icon: Wifi, roles: ['admin', 'super_admin'] },
     { to: '/admin/whatsapp', label: 'WhatsApp', icon: MessageSquare, roles: ['admin', 'super_admin'] },
+    { to: '/admin/excel-orders', label: 'Excel Orders', icon: FileSpreadsheet, roles: ['admin', 'super_admin'] },
     { to: '/admin/settings', label: 'Settings', icon: Settings, roles: ['admin', 'super_admin'] },
   ]
 

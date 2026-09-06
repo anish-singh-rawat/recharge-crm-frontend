@@ -1,3 +1,4 @@
+import React, { isValidElement } from 'react'
 import clsx from 'clsx'
 
 export default function StatCard({
@@ -51,7 +52,13 @@ export default function StatCard({
               iconBg
             )}
           >
-            <span className={iconColor}>{icon}</span>
+            <span className={iconColor}>
+              {isValidElement(icon)
+                ? icon
+                : typeof icon === 'function' || (icon && icon.render)
+                ? React.createElement(icon, { size: 20 })
+                : icon}
+            </span>
           </div>
         )}
       </div>
