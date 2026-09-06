@@ -20,6 +20,9 @@ export const partnerOrdersApi = {
       paidAmount,
     }),
 
+  bulkMarkAsPaid: (orderIds) =>
+    api.patch('/partner-orders/bulk-mark-paid', { orderIds }),
+
   sendNotifications: (data) =>
     api.post('/partner-orders/send-notifications', data),
 }

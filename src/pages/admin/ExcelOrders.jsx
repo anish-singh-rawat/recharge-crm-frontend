@@ -1,27 +1,6 @@
 import { useState, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  FileSpreadsheet,
-  Upload,
-  Send,
-  Search,
-  Filter,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  Smartphone,
-  Check,
-  Edit2,
-  RefreshCw,
-  Info,
-  DollarSign,
-  Users,
-  ShieldCheck,
-  ChevronRight,
-  X,
-  Wallet,
-  Plus,
-} from 'lucide-react'
+import { FileSpreadsheet, Upload, Send, Search, CheckCircle2, AlertCircle, Clock, Smartphone, Check, Edit2, RefreshCw, Info, DollarSign, X, Wallet, Plus, CheckSquare2, Square, BadgeCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { partnerOrdersApi } from '@/api/partnerOrders'
 import Card from '@/components/ui/Card'
@@ -49,25 +28,22 @@ export default function ExcelOrders() {
   const [selectedFile, setSelectedFile] = useState(null)
   const fileInputRef = useRef(null)
 
-  // Dedicated Payment Modal state
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [paymentModalOrder, setPaymentModalOrder] = useState(null)
   const [paymentModalAmount, setPaymentModalAmount] = useState('')
 
-  // Inline editing states
-  const [editingMobilePrm, setEditingMobilePrm] = useState(null)
-  const [mobileInputVal, setMobileInputVal] = useState('')
+  const [isMobileModalOpen, setIsMobileModalOpen] = useState(false)
+  const [mobileModalOrder, setMobileModalOrder] = useState(null)
+  const [mobileModalVal, setMobileModalVal] = useState('')
+
+  const [checkedIds, setCheckedIds] = useState(new Set())
   const [editingPaymentId, setEditingPaymentId] = useState(null)
   const [paymentInputVal, setPaymentInputVal] = useState('')
 
-  // Template & notification state
   const [messageTemplate, setMessageTemplate] = useState(DEFAULT_MESSAGE_TEMPLATE)
   const [selectedOrderIds, setSelectedOrderIds] = useState([])
-
-  // Live Socket queue progress
   const [queueProgress, setQueueProgress] = useState(null)
 
-  // Listen to background queue progress via Socket.IO
   useSocket({
     'partner-order:notification-progress': (data) => {
       setQueueProgress(data)
@@ -79,7 +55,7 @@ export default function ExcelOrders() {
     },
   })
 
-  // 1. Fetch Orders Query
+
   const {
     data: ordersData,
     isLoading: isLoadingOrders,
@@ -93,7 +69,7 @@ export default function ExcelOrders() {
         .then((res) => res.data?.data || res.data || {}),
   })
 
-  // 2. Fetch Summary Statistics
+
   const { data: summaryData, refetch: refetchSummary } = useQuery({
     queryKey: ['partner-orders', 'summary'],
     queryFn: () =>
@@ -113,7 +89,6 @@ export default function ExcelOrders() {
     partnersMissingMobile: 0,
   }
 
-  // 3. Upload Excel Mutation
   const importMutation = useMutation({
     mutationFn: (formData) => partnerOrdersApi.importExcel(formData),
     onSuccess: (res) => {
@@ -131,13 +106,11 @@ export default function ExcelOrders() {
     },
   })
 
-  // 4. Update Partner Mobile Mutation
   const mobileMutation = useMutation({
     mutationFn: ({ prmId, mobileNumber }) =>
       partnerOrdersApi.updatePartnerMobile(prmId, mobileNumber),
     onSuccess: (_, vars) => {
       toast.success(`Mobile number saved for Partner PRM ID ${vars.prmId}!`)
-      setEditingMobilePrm(null)
       queryClient.invalidateQueries({ queryKey: ['partner-orders'] })
       queryClient.invalidateQueries({ queryKey: ['partner-orders', 'summary'] })
     },
@@ -146,7 +119,6 @@ export default function ExcelOrders() {
     },
   })
 
-  // 5. Update Order Payment Mutation
   const paymentMutation = useMutation({
     mutationFn: ({ id, paidAmount }) =>
       partnerOrdersApi.updateOrderPayment(id, paidAmount),
@@ -161,7 +133,20 @@ export default function ExcelOrders() {
     },
   })
 
-  // 6. Send Payment Notifications Mutation
+  const bulkMarkMutation = useMutation({
+    mutationFn: (orderIds) => partnerOrdersApi.bulkMarkAsPaid(orderIds),
+    onSuccess: (res) => {
+      const data = res.data?.data || {}
+      toast.success(`${data.updated || 0} order(s) marked as fully paid! ✅`)
+      setCheckedIds(new Set())
+      queryClient.invalidateQueries({ queryKey: ['partner-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['partner-orders', 'summary'] })
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to mark orders as paid')
+    },
+  })
+
   const notifyMutation = useMutation({
     mutationFn: (payload) => partnerOrdersApi.sendNotifications(payload),
     onSuccess: (res) => {
@@ -189,13 +174,29 @@ export default function ExcelOrders() {
     importMutation.mutate(formData)
   }
 
-  const handleSaveMobile = (prmId) => {
-    const clean = mobileInputVal.trim().replace(/[^0-9]/g, '')
+  const handleOpenMobileModal = (order) => {
+    setMobileModalOrder(order)
+    setMobileModalVal(order.partnerMobile || '')
+    setIsMobileModalOpen(true)
+  }
+
+  const handleSaveMobileModal = (e) => {
+    e?.preventDefault()
+    if (!mobileModalOrder) return
+    const clean = mobileModalVal.trim().replace(/[^0-9]/g, '')
     if (clean && clean.length < 10) {
       toast.error('Please enter a valid 10-digit mobile number')
       return
     }
-    mobileMutation.mutate({ prmId, mobileNumber: clean })
+    mobileMutation.mutate(
+      { prmId: mobileModalOrder.partnerPrmId, mobileNumber: clean },
+      {
+        onSuccess: () => {
+          setIsMobileModalOpen(false)
+          setMobileModalOrder(null)
+        },
+      }
+    )
   }
 
   const handleSavePayment = (id) => {
@@ -232,12 +233,29 @@ export default function ExcelOrders() {
     )
   }
 
-  // Eligible pending orders for notification
+  const toggleRow = (id) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const toggleAllRows = () => {
+    if (checkedIds.size === orders.length && orders.length > 0) {
+      setCheckedIds(new Set())
+    } else {
+      setCheckedIds(new Set(orders.map((o) => o._id)))
+    }
+  }
+
+  const allChecked = orders.length > 0 && checkedIds.size === orders.length
+  const someChecked = checkedIds.size > 0 && checkedIds.size < orders.length
+
   const dueOrders = useMemo(() => {
     return orders.filter((o) => (o.dueAmount || 0) > 0)
   }, [orders])
 
-  // Sample live template preview with mock or first row values
   const previewMessage = useMemo(() => {
     const sample = dueOrders[0] ||
       orders[0] || {
@@ -441,11 +459,59 @@ export default function ExcelOrders() {
           </div>
         </div>
 
-        {/* Table Content */}
+        {checkedIds.size > 0 && (
+          <div className="px-4 py-2.5 border-b border-[#BFDBFE] bg-[#EFF6FF] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CheckSquare2 size={16} className="text-[#2563EB]" />
+              <span className="text-xs font-semibold text-[#1E40AF]">
+                {checkedIds.size} order{checkedIds.size > 1 ? 's' : ''} selected
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCheckedIds(new Set())}
+                className="text-[11px] text-[#64748B] hover:text-[#0F172A] underline"
+              >
+                Clear Selection
+              </button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={bulkMarkMutation.isPending}
+                onClick={() => bulkMarkMutation.mutate([...checkedIds])}
+                className="flex items-center gap-1.5 bg-[#16A34A] hover:bg-[#15803D] border-[#15803D]"
+              >
+                {bulkMarkMutation.isPending ? (
+                  <><RefreshCw size={13} className="animate-spin" /> Marking Paid...</>
+                ) : (
+                  <><BadgeCheck size={14} /> Mark {checkedIds.size} as Paid</>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] font-semibold uppercase tracking-wider">
+                <th className="py-3 px-3 w-10">
+                  <button
+                    type="button"
+                    onClick={toggleAllRows}
+                    className="flex items-center justify-center text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                    title={allChecked ? 'Deselect All' : 'Select All'}
+                  >
+                    {allChecked ? (
+                      <CheckSquare2 size={16} />
+                    ) : someChecked ? (
+                      <CheckSquare2 size={16} className="opacity-50" />
+                    ) : (
+                      <Square size={16} />
+                    )}
+                  </button>
+                </th>
                 <th className="py-3 px-3">Order ID</th>
                 <th className="py-3 px-3">Order Date</th>
                 <th className="py-3 px-3">Order Time</th>
@@ -462,7 +528,7 @@ export default function ExcelOrders() {
             <tbody className="divide-y divide-[#F1F5F9] text-[#334155]">
               {isLoadingOrders ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-[#94A3B8]">
+                  <td colSpan={12} className="py-12 text-center text-[#94A3B8]">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw className="animate-spin text-[#2563EB]" size={24} />
                       <span>Loading imported orders...</span>
@@ -471,7 +537,7 @@ export default function ExcelOrders() {
                 </tr>
               ) : orders.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-[#94A3B8]">
+                  <td colSpan={12} className="py-12 text-center text-[#94A3B8]">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <FileSpreadsheet className="text-[#CBD5E1]" size={36} />
                       <p className="font-semibold text-sm text-[#0F172A]">No Orders Found</p>
@@ -492,15 +558,27 @@ export default function ExcelOrders() {
                 </tr>
               ) : (
                 orders.map((order) => {
-                  const isEditingMobile = editingMobilePrm === order.partnerPrmId
                   const isEditingPayment = editingPaymentId === order._id
                   const isDue = (order.dueAmount || 0) > 0
+                  const isChecked = checkedIds.has(order._id)
 
                   return (
                     <tr
                       key={order._id}
-                      className="hover:bg-[#F8FAFC] transition-colors"
+                      className={`hover:bg-[#F8FAFC] transition-colors ${isChecked ? 'bg-[#EFF6FF]' : ''}`}
                     >
+                      {/* Checkbox */}
+                      <td className="py-3 px-3">
+                        <button
+                          type="button"
+                          onClick={() => toggleRow(order._id)}
+                          className={`flex items-center justify-center transition-colors ${
+                            isChecked ? 'text-[#2563EB]' : 'text-[#CBD5E1] hover:text-[#94A3B8]'
+                          }`}
+                        >
+                          {isChecked ? <CheckSquare2 size={16} /> : <Square size={16} />}
+                        </button>
+                      </td>
                       {/* 1. Order ID */}
                       <td className="py-3 px-3 font-mono font-medium text-[#0F172A]">
                         {order.orderId}
@@ -608,43 +686,9 @@ export default function ExcelOrders() {
                         )}
                       </td>
 
-                      {/* Customer Mobile (Editable & Persistent per PRM ID) */}
+                      {/* Customer Mobile — popup modal */}
                       <td className="py-3 px-3">
-                        {isEditingMobile ? (
-                          <div className="flex items-center gap-1 max-w-[180px]">
-                            <div className="relative flex-1">
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-[#94A3B8] font-bold">
-                                +91
-                              </span>
-                              <input
-                                type="tel"
-                                maxLength={10}
-                                placeholder="9876543210"
-                                value={mobileInputVal}
-                                onChange={(e) => setMobileInputVal(e.target.value)}
-                                className="w-full pl-8 pr-1 py-1 text-xs border border-[#2563EB] rounded font-mono focus:outline-none"
-                                autoFocus
-                              />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleSaveMobile(order.partnerPrmId)}
-                              disabled={mobileMutation.isPending}
-                              className="p-1 text-[#16A34A] hover:bg-[#DCFCE7] rounded"
-                              title="Save mobile for this PRM ID"
-                            >
-                              <Check size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingMobilePrm(null)}
-                              className="p-1 text-[#DC2626] hover:bg-[#FEE2E2] rounded"
-                              title="Cancel"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ) : order.partnerMobile ? (
+                        {order.partnerMobile ? (
                           <div className="flex items-center gap-1.5 group">
                             <Smartphone size={13} className="text-[#16A34A] shrink-0" />
                             <span className="font-mono text-xs text-[#0F172A]">
@@ -652,10 +696,7 @@ export default function ExcelOrders() {
                             </span>
                             <button
                               type="button"
-                              onClick={() => {
-                                setEditingMobilePrm(order.partnerPrmId)
-                                setMobileInputVal(order.partnerMobile)
-                              }}
+                              onClick={() => handleOpenMobileModal(order)}
                               className="opacity-0 group-hover:opacity-100 text-[#94A3B8] hover:text-[#2563EB] transition-opacity p-0.5"
                               title="Edit mobile for this PRM ID"
                             >
@@ -663,19 +704,14 @@ export default function ExcelOrders() {
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1 max-w-[160px]">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingMobilePrm(order.partnerPrmId)
-                                setMobileInputVal('')
-                              }}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded border border-dashed border-[#CBD5E1] text-[#2563EB] hover:bg-[#EFF6FF] transition-colors"
-                            >
-                              <Smartphone size={11} />
-                              + Add Mobile
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenMobileModal(order)}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded border border-dashed border-[#CBD5E1] text-[#2563EB] hover:bg-[#EFF6FF] transition-colors"
+                          >
+                            <Smartphone size={11} />
+                            + Add Mobile
+                          </button>
                         )}
                       </td>
 
@@ -710,7 +746,6 @@ export default function ExcelOrders() {
           </table>
         </div>
 
-        {/* Pagination Footer */}
         {pagination.pages > 1 && (
           <div className="p-4 border-t border-[#E2E8F0] flex items-center justify-between">
             <span className="text-xs text-[#64748B]">
@@ -725,9 +760,88 @@ export default function ExcelOrders() {
         )}
       </Card>
 
-      {/* ========================================================= */}
-      {/* 0. EDIT PAYMENT MODAL */}
-      {/* ========================================================= */}
+      <Modal
+        open={isMobileModalOpen}
+        onClose={() => {
+          if (!mobileMutation.isPending) {
+            setIsMobileModalOpen(false)
+            setMobileModalOrder(null)
+          }
+        }}
+        title="Add / Update Customer Mobile"
+        size="sm"
+      >
+        {mobileModalOrder && (
+          <form onSubmit={handleSaveMobileModal} className="space-y-4">
+            <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Partner Name</span>
+                <span className="font-medium text-[#0F172A] truncate max-w-[180px]">{mobileModalOrder.partnerName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">PRM ID</span>
+                <span className="font-mono font-semibold text-[#0F172A]">{mobileModalOrder.partnerPrmId}</span>
+              </div>
+              {mobileModalOrder.partnerMobile && (
+                <div className="flex justify-between">
+                  <span className="text-[#64748B]">Current Mobile</span>
+                  <span className="font-mono text-[#16A34A] font-semibold">+91 {mobileModalOrder.partnerMobile}</span>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                {mobileModalOrder.partnerMobile ? 'Update Mobile Number' : 'Enter Mobile Number'}
+              </label>
+              <p className="text-[11px] text-[#64748B] mb-2">
+                This number will be saved for all orders of PRM ID <b>{mobileModalOrder.partnerPrmId}</b>.
+              </p>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-[#64748B]">+91</span>
+                <input
+                  type="tel"
+                  maxLength={10}
+                  placeholder="9876543210"
+                  value={mobileModalVal}
+                  onChange={(e) => setMobileModalVal(e.target.value.replace(/[^0-9]/g, ''))}
+                  className="w-full pl-12 pr-3 py-2.5 text-sm font-mono border border-[#CBD5E1] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-1">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setIsMobileModalOpen(false)
+                  setMobileModalOrder(null)
+                }}
+                disabled={mobileMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                disabled={mobileMutation.isPending || mobileModalVal.trim().length === 0}
+                className="flex items-center gap-1.5"
+              >
+                {mobileMutation.isPending ? (
+                  <><RefreshCw size={13} className="animate-spin" /> Saving...</>
+                ) : (
+                  <><Smartphone size={13} /> Save Mobile</>
+                )}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
       <Modal
         open={isPaymentModalOpen}
         onClose={() => {
@@ -869,9 +983,7 @@ export default function ExcelOrders() {
         )}
       </Modal>
 
-      {/* ========================================================= */}
-      {/* 1. IMPORT EXCEL MODAL */}
-      {/* ========================================================= */}
+
       <Modal
         open={isImportModalOpen}
 
@@ -999,9 +1111,7 @@ export default function ExcelOrders() {
         </form>
       </Modal>
 
-      {/* ========================================================= */}
-      {/* 2. SEND PAYMENT NOTIFICATIONS MODAL (PREVIEW & EDIT) */}
-      {/* ========================================================= */}
+
       <Modal
         open={isNotifyModalOpen}
         onClose={() => {
@@ -1133,9 +1243,7 @@ export default function ExcelOrders() {
         </div>
       </Modal>
 
-      {/* ========================================================= */}
-      {/* 3. LIVE QUEUE PROGRESS MODAL */}
-      {/* ========================================================= */}
+
       <Modal
         open={isProgressModalOpen}
         onClose={() => setIsProgressModalOpen(false)}
