@@ -23,6 +23,10 @@ export const partnerOrdersApi = {
   bulkMarkAsPaid: (orderIds) =>
     api.patch('/partner-orders/bulk-mark-paid', { orderIds }),
 
+  deleteOrder: (id) => api.delete(`/partner-orders/${id}`),
+
+  bulkDelete: (orderIds) => api.post('/partner-orders/bulk-delete', { orderIds }),
+
   sendNotifications: (data) =>
     api.post('/partner-orders/send-notifications', data),
 }

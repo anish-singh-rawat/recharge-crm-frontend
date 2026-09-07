@@ -1,6 +1,27 @@
 import { useState, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FileSpreadsheet, Upload, Send, Search, CheckCircle2, AlertCircle, Clock, Smartphone, Check, Edit2, RefreshCw, Info, DollarSign, X, Wallet, Plus, CheckSquare2, Square, BadgeCheck } from 'lucide-react'
+import {
+  FileSpreadsheet,
+  Upload,
+  Send,
+  Search,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  Smartphone,
+  Check,
+  Edit2,
+  RefreshCw,
+  Info,
+  DollarSign,
+  X,
+  Wallet,
+  Plus,
+  CheckSquare2,
+  Square,
+  BadgeCheck,
+  Trash2,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 import { partnerOrdersApi } from '@/api/partnerOrders'
 import Card from '@/components/ui/Card'
@@ -10,6 +31,48 @@ import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import Pagination from '@/components/ui/Pagination'
 import { useSocket } from '@/hooks/useSocket'
+import { formatDateTime } from '@/utils/format'
+
+export function formatOrderTime(rawTime) {
+  if (!rawTime && rawTime !== 0) return '—'
+  const str = String(rawTime).trim()
+  if (!str) return '—'
+
+  // If already contains colons like "04:12:07 AM" or "15:13:13"
+  if (str.includes(':')) {
+    const match = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM))?$/i)
+    if (match) {
+      let [_, h, m, s, period] = match
+      s = s || '00'
+      if (!period) {
+        let hour = parseInt(h, 10)
+        const ampm = hour >= 12 ? 'PM' : 'AM'
+        hour = hour % 12 || 12
+        return `${hour}:${m}:${s} ${ampm}`
+      }
+      return `${parseInt(h, 10)}:${m}:${s} ${period.toUpperCase()}`
+    }
+    return str
+  }
+
+  // Pure digits: e.g. 41207 -> 4:12:07 AM, 151313 -> 3:13:13 PM
+  if (/^\d+$/.test(str)) {
+    const padded = str.padStart(6, '0')
+    if (padded.length === 6) {
+      const hour24 = parseInt(padded.slice(0, 2), 10)
+      const min = padded.slice(2, 4)
+      const sec = padded.slice(4, 6)
+
+      if (hour24 >= 0 && hour24 < 24 && parseInt(min, 10) < 60 && parseInt(sec, 10) < 60) {
+        const ampm = hour24 >= 12 ? 'PM' : 'AM'
+        const displayHour = hour24 % 12 || 12
+        return `${displayHour}:${min}:${sec} ${ampm}`
+      }
+    }
+  }
+
+  return str
+}
 
 const DEFAULT_MESSAGE_TEMPLATE =
   'Dear {partnerName}, this is a gentle reminder that your order #{orderId} dated {orderDate} of {orderAmount} has a pending due balance of {dueAmount} (Paid: {paidAmount}). Please clear the pending amount at your earliest convenience. Thank you! - RechPays'
@@ -39,6 +102,11 @@ export default function ExcelOrders() {
   const [checkedIds, setCheckedIds] = useState(new Set())
   const [editingPaymentId, setEditingPaymentId] = useState(null)
   const [paymentInputVal, setPaymentInputVal] = useState('')
+
+  // Delete modal state
+  const [deleteTargetOrder, setDeleteTargetOrder] = useState(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false)
 
   const [messageTemplate, setMessageTemplate] = useState(DEFAULT_MESSAGE_TEMPLATE)
   const [selectedOrderIds, setSelectedOrderIds] = useState([])
@@ -147,6 +215,42 @@ export default function ExcelOrders() {
     },
   })
 
+  // Single Delete Mutation
+  const deleteOrderMutation = useMutation({
+    mutationFn: (id) => partnerOrdersApi.deleteOrder(id),
+    onSuccess: (_, deletedId) => {
+      toast.success('Order deleted successfully')
+      setIsDeleteModalOpen(false)
+      setDeleteTargetOrder(null)
+      setCheckedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(deletedId)
+        return next
+      })
+      queryClient.invalidateQueries({ queryKey: ['partner-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['partner-orders', 'summary'] })
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to delete order')
+    },
+  })
+
+  // Bulk Delete Mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (orderIds) => partnerOrdersApi.bulkDelete(orderIds),
+    onSuccess: (res) => {
+      const data = res.data?.data || {}
+      toast.success(`${data.deletedCount || 0} order(s) deleted successfully!`)
+      setIsBulkDeleteModalOpen(false)
+      setCheckedIds(new Set())
+      queryClient.invalidateQueries({ queryKey: ['partner-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['partner-orders', 'summary'] })
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to delete selected orders')
+    },
+  })
+
   const notifyMutation = useMutation({
     mutationFn: (payload) => partnerOrdersApi.sendNotifications(payload),
     onSuccess: (res) => {
@@ -249,6 +353,21 @@ export default function ExcelOrders() {
     }
   }
 
+  const handlePromptDeleteOrder = (order) => {
+    setDeleteTargetOrder(order)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleConfirmDeleteOrder = () => {
+    if (!deleteTargetOrder) return
+    deleteOrderMutation.mutate(deleteTargetOrder._id)
+  }
+
+  const handleConfirmBulkDelete = () => {
+    if (checkedIds.size === 0) return
+    bulkDeleteMutation.mutate([...checkedIds])
+  }
+
   const allChecked = orders.length > 0 && checkedIds.size === orders.length
   const someChecked = checkedIds.size > 0 && checkedIds.size < orders.length
 
@@ -275,6 +394,7 @@ export default function ExcelOrders() {
       .replace(/{paidAmount}/g, `₹${sample.paidAmount || 0}`)
       .replace(/{dueAmount}/g, `₹${sample.dueAmount || 0}`)
       .replace(/{orderDate}/g, sample.orderDate || '')
+      .replace(/{orderTime}/g, formatOrderTime(sample.orderTime) || '')
       .replace(/{partnerPrmId}/g, sample.partnerPrmId || '')
   }, [messageTemplate, dueOrders, orders])
 
@@ -471,14 +591,14 @@ export default function ExcelOrders() {
               <button
                 type="button"
                 onClick={() => setCheckedIds(new Set())}
-                className="text-[11px] text-[#64748B] hover:text-[#0F172A] underline"
+                className="text-[11px] text-[#64748B] hover:text-[#0F172A] underline mr-1"
               >
                 Clear Selection
               </button>
               <Button
                 variant="primary"
                 size="sm"
-                disabled={bulkMarkMutation.isPending}
+                disabled={bulkMarkMutation.isPending || bulkDeleteMutation.isPending}
                 onClick={() => bulkMarkMutation.mutate([...checkedIds])}
                 className="flex items-center gap-1.5 bg-[#16A34A] hover:bg-[#15803D] border-[#15803D]"
               >
@@ -486,6 +606,19 @@ export default function ExcelOrders() {
                   <><RefreshCw size={13} className="animate-spin" /> Marking Paid...</>
                 ) : (
                   <><BadgeCheck size={14} /> Mark {checkedIds.size} as Paid</>
+                )}
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={bulkMarkMutation.isPending || bulkDeleteMutation.isPending}
+                onClick={() => setIsBulkDeleteModalOpen(true)}
+                className="flex items-center gap-1.5 bg-[#DC2626] hover:bg-[#B91C1C] border-[#B91C1C] text-white"
+              >
+                {bulkDeleteMutation.isPending ? (
+                  <><RefreshCw size={13} className="animate-spin" /> Deleting...</>
+                ) : (
+                  <><Trash2 size={14} /> Delete {checkedIds.size} Selected</>
                 )}
               </Button>
             </div>
@@ -521,6 +654,7 @@ export default function ExcelOrders() {
                 <th className="py-3 px-3 text-right">Paid Amount</th>
                 <th className="py-3 px-3 text-right">Due Amount</th>
                 <th className="py-3 px-3">Customer Mobile</th>
+                <th className="py-3 px-3">Created Date</th>
                 <th className="py-3 px-3 text-center">Status</th>
                 <th className="py-3 px-3 text-center">Actions</th>
               </tr>
@@ -528,7 +662,7 @@ export default function ExcelOrders() {
             <tbody className="divide-y divide-[#F1F5F9] text-[#334155]">
               {isLoadingOrders ? (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-[#94A3B8]">
+                  <td colSpan={13} className="py-12 text-center text-[#94A3B8]">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw className="animate-spin text-[#2563EB]" size={24} />
                       <span>Loading imported orders...</span>
@@ -537,7 +671,7 @@ export default function ExcelOrders() {
                 </tr>
               ) : orders.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-[#94A3B8]">
+                  <td colSpan={13} className="py-12 text-center text-[#94A3B8]">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <FileSpreadsheet className="text-[#CBD5E1]" size={36} />
                       <p className="font-semibold text-sm text-[#0F172A]">No Orders Found</p>
@@ -590,8 +724,8 @@ export default function ExcelOrders() {
                       </td>
 
                       {/* 3. Order Time */}
-                      <td className="py-3 px-3 text-[#475569] font-mono">
-                        {order.orderTime || '—'}
+                      <td className="py-3 px-3 text-[#475569] font-mono whitespace-nowrap">
+                        {formatOrderTime(order.orderTime)}
                       </td>
 
                       {/* 4. Partner Name */}
@@ -715,6 +849,11 @@ export default function ExcelOrders() {
                         )}
                       </td>
 
+                      {/* Created Date */}
+                      <td className="py-3 px-3 text-[#64748B] whitespace-nowrap text-xs">
+                        {formatDateTime(order.createdAt)}
+                      </td>
+
                       {/* Status */}
                       <td className="py-3 px-3 text-center">
                         {order.paymentStatus === 'paid' ? (
@@ -728,15 +867,25 @@ export default function ExcelOrders() {
 
                       {/* Actions */}
                       <td className="py-3 px-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenPaymentModal(order)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#EFF6FF] text-[#2563EB] hover:bg-[#DBEAFE] border border-[#BFDBFE] text-[11px] font-semibold transition-colors"
-                          title="Edit Payment Amount"
-                        >
-                          <Wallet size={12} />
-                          Edit Pay
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPaymentModal(order)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#EFF6FF] text-[#2563EB] hover:bg-[#DBEAFE] border border-[#BFDBFE] text-[11px] font-semibold transition-colors"
+                            title="Edit Payment Amount"
+                          >
+                            <Wallet size={12} />
+                            Edit Pay
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handlePromptDeleteOrder(order)}
+                            className="inline-flex items-center justify-center p-1.5 rounded-lg bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] border border-[#FECACA] text-[11px] transition-colors"
+                            title="Delete this order"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -746,19 +895,124 @@ export default function ExcelOrders() {
           </table>
         </div>
 
-        {pagination.pages > 1 && (
-          <div className="p-4 border-t border-[#E2E8F0] flex items-center justify-between">
-            <span className="text-xs text-[#64748B]">
-              Showing {orders.length} of {pagination.total} orders
-            </span>
-            <Pagination
-              currentPage={page}
-              totalPages={pagination.pages}
-              onPageChange={setPage}
-            />
+        <Pagination
+          pagination={{
+            page,
+            limit,
+            total: pagination.total || 0,
+            totalPages: pagination.totalPages || pagination.pages || 1,
+          }}
+          onPageChange={setPage}
+        />
+      </Card>
+
+      {/* ========================================================= */}
+      {/* DELETE SINGLE ORDER MODAL */}
+      {/* ========================================================= */}
+      <Modal
+        open={isDeleteModalOpen}
+        onClose={() => {
+          if (!deleteOrderMutation.isPending) {
+            setIsDeleteModalOpen(false)
+            setDeleteTargetOrder(null)
+          }
+        }}
+        title="Delete Order"
+        size="sm"
+      >
+        {deleteTargetOrder && (
+          <div className="space-y-4">
+            <p className="text-sm text-[#475569]">
+              Are you sure you want to delete order <span className="font-mono font-bold text-[#0F172A]">#{deleteTargetOrder.orderId}</span> for partner <span className="font-semibold text-[#0F172A]">{deleteTargetOrder.partnerName}</span>?
+            </p>
+            <div className="p-3 bg-[#FEF2F2] border border-[#FECACA] rounded-lg text-xs text-[#991B1B] space-y-1">
+              <div className="flex justify-between">
+                <span>Order Amount:</span>
+                <span className="font-mono font-bold">₹{deleteTargetOrder.orderAmount?.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Due Amount:</span>
+                <span className="font-mono font-bold">₹{deleteTargetOrder.dueAmount?.toFixed(2)}</span>
+              </div>
+              <p className="pt-1 text-[11px] text-[#DC2626]">
+                ⚠️ This transaction will be permanently removed from the system.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setIsDeleteModalOpen(false)
+                  setDeleteTargetOrder(null)
+                }}
+                disabled={deleteOrderMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleConfirmDeleteOrder}
+                disabled={deleteOrderMutation.isPending}
+                className="flex items-center gap-1.5 bg-[#DC2626] hover:bg-[#B91C1C] border-[#B91C1C] text-white"
+              >
+                {deleteOrderMutation.isPending ? (
+                  <><RefreshCw size={13} className="animate-spin" /> Deleting...</>
+                ) : (
+                  <><Trash2 size={13} /> Delete Order</>
+                )}
+              </Button>
+            </div>
           </div>
         )}
-      </Card>
+      </Modal>
+
+      {/* ========================================================= */}
+      {/* BULK DELETE ORDERS MODAL */}
+      {/* ========================================================= */}
+      <Modal
+        open={isBulkDeleteModalOpen}
+        onClose={() => {
+          if (!bulkDeleteMutation.isPending) {
+            setIsBulkDeleteModalOpen(false)
+          }
+        }}
+        title="Delete Selected Orders"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-[#475569]">
+            Are you sure you want to permanently delete <span className="font-bold text-[#DC2626]">{checkedIds.size}</span> selected order(s)?
+          </p>
+          <div className="p-3 bg-[#FEF2F2] border border-[#FECACA] rounded-lg text-xs text-[#991B1B]">
+            ⚠️ This action cannot be undone. All selected transactions will be permanently deleted from the database.
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsBulkDeleteModalOpen(false)}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleConfirmBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+              className="flex items-center gap-1.5 bg-[#DC2626] hover:bg-[#B91C1C] border-[#B91C1C] text-white"
+            >
+              {bulkDeleteMutation.isPending ? (
+                <><RefreshCw size={13} className="animate-spin" /> Deleting {checkedIds.size} Orders...</>
+              ) : (
+                <><Trash2 size={13} /> Delete {checkedIds.size} Orders</>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={isMobileModalOpen}

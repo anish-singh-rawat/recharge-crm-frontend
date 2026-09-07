@@ -1,11 +1,15 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import clsx from 'clsx'
 
-export default function Pagination({ pagination, onPageChange }) {
-  if (!pagination || pagination.totalPages <= 1) return null
+export default function Pagination({ pagination, onPageChange, currentPage, totalPages: propTotalPages, total: propTotal, limit: propLimit }) {
+  const page = pagination?.page ?? currentPage ?? 1
+  const totalPages = pagination?.totalPages ?? pagination?.pages ?? propTotalPages ?? 1
+  const total = pagination?.total ?? propTotal ?? 0
+  const limit = pagination?.limit ?? propLimit ?? 25
 
-  const { page, totalPages, total, limit } = pagination
-  const start = (page - 1) * limit + 1
+  if (totalPages <= 1) return null
+
+  const start = total === 0 ? 0 : (page - 1) * limit + 1
   const end = Math.min(page * limit, total)
 
   const pages = []
