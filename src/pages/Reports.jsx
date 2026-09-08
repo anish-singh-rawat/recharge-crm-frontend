@@ -646,7 +646,7 @@ export default function Reports() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-                          {['Txn ID', 'Provider Rc ID', 'Provider', 'Mobile', 'Operator', 'Circle', 'Amount', 'Commission', 'Status', 'Date'].map((h) => (
+                          {['Txn ID', 'Provider Rc ID', 'Mobile', 'Operator', 'Circle', 'Amount', 'Commission', 'Status', 'Date'].map((h) => (
                             <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[#94A3B8] uppercase tracking-wide whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
@@ -659,15 +659,6 @@ export default function Reports() {
                             </td>
                             <td className="px-4 py-3 font-mono text-xs text-[#0891B2]">
                               {txn.providerTxnId || '—'}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                txn.usedProvider === 'realrobo'
-                                  ? 'bg-[#DCFCE7] text-[#16A34A]'
-                                  : 'bg-[#DBEAFE] text-[#2563EB]'
-                              }`}>
-                                {txn.usedProvider === 'realrobo' ? 'RealRobo' : 'MRobotics'}
-                              </span>
                             </td>
                             <td className="px-4 py-3 font-medium text-[#0F172A]">{txn.mobileNumber}</td>
                             <td className="px-4 py-3 text-[#475569]">{txn.operator?.name || '—'}</td>
