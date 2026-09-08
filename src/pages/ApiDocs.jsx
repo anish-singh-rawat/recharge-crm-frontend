@@ -299,7 +299,7 @@ export default function ApiDocs() {
           <h2 className="text-base font-semibold text-[#0F172A]">Recharge Response Format Specification</h2>
         </div>
         <p className="text-xs text-[#475569] mb-4">
-          All recharge calls (both POST and GET initiation as well as Status check) return a simplified, direct response structure:
+          All recharge status checks and partner API endpoints return a standardized, comprehensive response structure:
         </p>
 
         <div className="overflow-x-auto">
@@ -313,35 +313,71 @@ export default function ApiDocs() {
             </thead>
             <tbody className="divide-y divide-[#E2E8F0]">
               <tr>
-                <td className="px-3 py-2 font-mono text-[#2563EB] font-semibold">success</td>
-                <td className="px-3 py-2 font-mono text-[#64748B]">boolean | string</td>
+                <td className="px-3 py-2 font-mono text-[#2563EB] font-semibold">status</td>
+                <td className="px-3 py-2 font-mono text-[#64748B]">string</td>
                 <td className="px-3 py-2 text-[#334155]">
-                  <span className="inline-block px-1.5 py-0.5 rounded bg-[#DCFCE7] text-[#16A34A] font-bold font-mono mr-1">true</span> = Recharge Successful<br />
-                  <span className="inline-block px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#D97706] font-bold font-mono mr-1 mt-1">&quot;PENDING&quot;</span> = Processing / Awaiting confirmation<br />
-                  <span className="inline-block px-1.5 py-0.5 rounded bg-[#FEE2E2] text-[#DC2626] font-bold font-mono mr-1 mt-1">false</span> = Failed (Amount not deducted or refunded)
+                  <span className="inline-block px-1.5 py-0.5 rounded bg-[#DCFCE7] text-[#16A34A] font-bold font-mono mr-1">&quot;success&quot;</span> = Recharge Successful<br />
+                  <span className="inline-block px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#D97706] font-bold font-mono mr-1 mt-1">&quot;pending&quot;</span> = Processing / Awaiting confirmation<br />
+                  <span className="inline-block px-1.5 py-0.5 rounded bg-[#FEE2E2] text-[#DC2626] font-bold font-mono mr-1 mt-1">&quot;failure&quot;</span> = Failed (Amount not deducted or refunded)
+                </td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 font-mono text-[#2563EB] font-semibold">txnId</td>
+                <td className="px-3 py-2 font-mono text-[#64748B]">string</td>
+                <td className="px-3 py-2 text-[#334155]">
+                  System-generated Unique Transaction ID (e.g. <code className="font-mono bg-[#F1F5F9] px-1 rounded text-[#0F172A]">TXNKX3A9B2F1C</code>).
+                </td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 font-mono text-[#2563EB] font-semibold">clientTxnId</td>
+                <td className="px-3 py-2 font-mono text-[#64748B]">string | null</td>
+                <td className="px-3 py-2 text-[#334155]">
+                  Your custom reference transaction ID passed in the request (e.g. <code className="font-mono bg-[#F1F5F9] px-1 rounded text-[#0F172A]">GFG8678JH</code>).
                 </td>
               </tr>
               <tr>
                 <td className="px-3 py-2 font-mono text-[#2563EB] font-semibold">providerTxnId</td>
                 <td className="px-3 py-2 font-mono text-[#64748B]">string</td>
                 <td className="px-3 py-2 text-[#334155]">
-                  Provider Reference ID / Operator Transaction ID (e.g. <code className="font-mono bg-[#F1F5F9] px-1 rounded text-[#0F172A]">BR000DYCXWJ2</code>). In failure scenarios, contains error reason code.
+                  Provider Reference ID / Operator Transaction ID (e.g. <code className="font-mono bg-[#F1F5F9] px-1 rounded text-[#0F172A]">BR000DYCXWJ2</code>). In failure scenarios, contains error reason or &quot;FAILED&quot;.
+                </td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 font-mono text-[#2563EB] font-semibold">operatorRef</td>
+                <td className="px-3 py-2 font-mono text-[#64748B]">string | null</td>
+                <td className="px-3 py-2 text-[#334155]">
+                  Operator Live Lapu Reference / Confirmation Number.
                 </td>
               </tr>
               <tr>
                 <td className="px-3 py-2 font-mono text-[#2563EB] font-semibold">number</td>
                 <td className="px-3 py-2 font-mono text-[#64748B]">string</td>
-                <td className="px-3 py-2 text-[#334155]">10-digit recharged mobile number (e.g. <code className="font-mono bg-[#F1F5F9] px-1 rounded text-[#0F172A]">9099277662</code>)</td>
+                <td className="px-3 py-2 text-[#334155]">10-digit recharged mobile number (e.g. <code className="font-mono bg-[#F1F5F9] px-1 rounded text-[#0F172A]">9099277662</code>).</td>
               </tr>
               <tr>
                 <td className="px-3 py-2 font-mono text-[#2563EB] font-semibold">amount</td>
                 <td className="px-3 py-2 font-mono text-[#64748B]">number</td>
-                <td className="px-3 py-2 text-[#334155]">Recharge amount in INR (e.g. <code className="font-mono bg-[#F1F5F9] px-1 rounded text-[#0F172A]">11</code>)</td>
+                <td className="px-3 py-2 text-[#334155]">Recharge amount in INR (e.g. <code className="font-mono bg-[#F1F5F9] px-1 rounded text-[#0F172A]">11</code>).</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 font-mono text-[#2563EB] font-semibold">operator</td>
+                <td className="px-3 py-2 font-mono text-[#64748B]">string | null</td>
+                <td className="px-3 py-2 text-[#334155]">Telecom operator name / code (e.g. <code className="font-mono bg-[#F1F5F9] px-1 rounded text-[#0F172A]">Jio Prepaid</code>).</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 font-mono text-[#2563EB] font-semibold">circle</td>
+                <td className="px-3 py-2 font-mono text-[#64748B]">string | null</td>
+                <td className="px-3 py-2 text-[#334155]">Telecom circle name / code (e.g. <code className="font-mono bg-[#F1F5F9] px-1 rounded text-[#0F172A]">Delhi NCR</code>).</td>
               </tr>
               <tr>
                 <td className="px-3 py-2 font-mono text-[#2563EB] font-semibold">message</td>
                 <td className="px-3 py-2 font-mono text-[#64748B]">string</td>
-                <td className="px-3 py-2 text-[#334155]">Operator response or error description message</td>
+                <td className="px-3 py-2 text-[#334155]">Operator response or error description message.</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 font-mono text-[#2563EB] font-semibold">createdAt</td>
+                <td className="px-3 py-2 font-mono text-[#64748B]">string (ISO)</td>
+                <td className="px-3 py-2 text-[#334155]">Timestamp when the transaction was created.</td>
               </tr>
             </tbody>
           </table>
@@ -358,12 +394,13 @@ export default function ApiDocs() {
           copyKey="recharge-initiate-post"
           onCopy={copy}
           copiedKey={copiedKey}
-          note="Supports field aliases: mobileNumber / number / mobile / phone, amount / amt, operatorId / operator / op, circleId / circle / state."
+          note="Supports custom clientTxnId (unique per retailer account). Supports field aliases: mobileNumber / number / mobile / phone, amount / amt, operatorId / operator / op, circleId / circle / state."
           body={JSON.stringify({
             mobileNumber: '9099277662',
             amount: 11,
             operatorId: '6a6f8d11d8fcb29986f98350',
             circleId: '6a6f8d11d8fcb29986f98344',
+            clientTxnId: 'GFG8678JH',
             type: 'MOBILE_PREPAID',
           }, null, 2)}
           params={[
@@ -371,42 +408,62 @@ export default function ApiDocs() {
             { name: 'amount', in: 'body', required: true, description: 'Recharge amount in INR (or amt)' },
             { name: 'operatorId', in: 'body', required: true, description: 'Operator MongoDB ID (from GET /ext/operators)' },
             { name: 'circleId', in: 'body', required: false, description: 'Circle MongoDB ID (from GET /ext/circles, optional)' },
+            { name: 'clientTxnId', in: 'body', required: false, description: 'Your custom unique transaction ID (e.g. GFG8678JH). Unique per retailer.' },
             { name: 'type', in: 'body', required: false, description: 'MOBILE_PREPAID or MOBILE_POSTPAID (default: MOBILE_PREPAID)' },
           ]}
           responseExamples={[
             {
               title: 'Success Response',
               code: JSON.stringify({
-                success: true,
+                status: 'success',
+                txnId: 'TXNKX3A9B2F1C',
+                clientTxnId: 'GFG8678JH',
                 providerTxnId: 'BR000DYCXWJ2',
+                operatorRef: '066362471414026100001',
                 number: '9099277662',
                 amount: 11,
+                operator: 'Jio Prepaid',
+                circle: 'Delhi NCR',
                 message: 'Success|28|||066362471414026100001|066362471414026501731|066362471414026900001||066362471414026100000',
+                createdAt: '2026-09-07T11:53:47.000Z',
               }, null, 2),
             },
             {
               title: 'Pending Response',
               code: JSON.stringify({
-                success: 'PENDING',
+                status: 'pending',
+                txnId: 'TXNKX3A9B2F1C',
+                clientTxnId: 'GFG8678JH',
                 providerTxnId: 'TXNKX3A9B2F1C',
+                operatorRef: null,
                 number: '9099277662',
                 amount: 11,
-                message: 'Recharge initiated, awaiting provider confirmation',
+                operator: 'Jio Prepaid',
+                circle: 'Delhi NCR',
+                message: 'Recharge is currently processing',
+                createdAt: '2026-09-07T11:53:47.000Z',
               }, null, 2),
             },
             {
               title: 'Failure Response',
               code: JSON.stringify({
-                success: false,
-                providerTxnId: 'Insufficient wallet balance',
+                status: 'failure',
+                txnId: 'TXNKX3A9B2F1C',
+                clientTxnId: 'GFG8678JH',
+                providerTxnId: 'BR000DYCXWJ2',
+                operatorRef: null,
                 number: '9099277662',
                 amount: 11,
-                message: 'Insufficient wallet balance',
+                operator: 'Jio Prepaid',
+                circle: 'Delhi NCR',
+                message: 'Recharge failed: Provider connection timeout',
+                createdAt: '2026-09-07T11:53:47.000Z',
               }, null, 2),
             },
           ]}
           errorExamples={[
             { status: '400', message: 'Validation failed: Please provide a valid 10-digit mobile number' },
+            { status: '400', message: 'Duplicate clientTxnId. Transaction with ID \'GFG8678JH\' already exists for your account.' },
             { status: '402', message: 'Insufficient wallet balance' },
             { status: '422', message: 'Operator not found or inactive' },
             { status: '429', message: 'Rate limit exceeded: Too many recharge requests' },
@@ -427,14 +484,18 @@ export default function ApiDocs() {
             { name: 'amount', in: 'query', required: true, description: 'Recharge amount in INR (or amt)' },
             { name: 'operatorId', in: 'query', required: true, description: 'Operator MongoDB ID (or op)' },
             { name: 'circleId', in: 'query', required: false, description: 'Circle MongoDB ID (or circle, optional)' },
+            { name: 'clientTxnId', in: 'query', required: false, description: 'Your custom unique transaction ID (e.g. GFG8678JH)' },
             { name: 'apiKey', in: 'query', required: false, description: 'API Key (if not passing in X-Api-Key header)' },
           ]}
           responseExamples={[
             {
               title: 'Success Response',
               code: JSON.stringify({
-                success: true,
+                status: 'success',
+                txnId: 'TXNKX3A9B2F1C',
+                clientTxnId: 'GFG8678JH',
                 providerTxnId: 'BR000DYCXWJ2',
+                operatorRef: '066362471414026100001',
                 number: '9099277662',
                 amount: 11,
                 message: 'Success|28|||066362471414026100001|066362471414026501731|066362471414026900001||066362471414026100000',
@@ -443,8 +504,11 @@ export default function ApiDocs() {
             {
               title: 'Failure Response',
               code: JSON.stringify({
-                success: false,
-                providerTxnId: 'FAILED',
+                status: 'failure',
+                txnId: 'TXNKX3A9B2F1C',
+                clientTxnId: 'GFG8678JH',
+                providerTxnId: 'BR000DYCXWJ2',
+                operatorRef: null,
                 number: '9099277662',
                 amount: 11,
                 message: 'Operator rejected: Invalid denomination',
@@ -457,42 +521,61 @@ export default function ApiDocs() {
         <EndpointRow
           method="GET"
           path="/recharge/:txnId"
-          description="Check current status of a specific recharge transaction"
+          description="Check current status of a recharge using either the System Transaction ID (e.g. TXN...) or your custom clientTxnId (e.g. GFG8678JH)"
           copyKey="recharge-status"
           onCopy={copy}
           copiedKey={copiedKey}
+          note="You can query this endpoint using either your own custom clientTxnId (e.g. /recharge/GFG8678JH) or the system txnId (e.g. /recharge/TXNKX3A9B2F1C)."
           params={[
-            { name: 'txnId', in: 'path', required: true, description: 'Internal transaction ID or Provider reference' },
+            { name: 'txnId', in: 'path', required: true, description: 'System Transaction ID OR your custom clientTxnId (e.g. GFG8678JH)' },
           ]}
           responseExamples={[
             {
               title: 'Success Status',
               code: JSON.stringify({
-                success: true,
+                status: 'success',
+                txnId: 'TXNKX3A9B2F1C',
+                clientTxnId: 'GFG8678JH',
                 providerTxnId: 'BR000DYCXWJ2',
+                operatorRef: '066362471414026100001',
                 number: '9099277662',
                 amount: 11,
+                operator: 'Jio Prepaid',
+                circle: 'Delhi NCR',
                 message: 'Success|28|||066362471414026100001|066362471414026501731|066362471414026900001||066362471414026100000',
+                createdAt: '2026-09-07T11:53:47.000Z',
               }, null, 2),
             },
             {
               title: 'Pending Status',
               code: JSON.stringify({
-                success: 'PENDING',
+                status: 'pending',
+                txnId: 'TXNKX3A9B2F1C',
+                clientTxnId: 'GFG8678JH',
                 providerTxnId: 'TXNKX3A9B2F1C',
+                operatorRef: null,
                 number: '9099277662',
                 amount: 11,
+                operator: 'Jio Prepaid',
+                circle: 'Delhi NCR',
                 message: 'Recharge is currently processing',
+                createdAt: '2026-09-07T11:53:47.000Z',
               }, null, 2),
             },
             {
               title: 'Failed Status',
               code: JSON.stringify({
-                success: false,
+                status: 'failure',
+                txnId: 'TXNKX3A9B2F1C',
+                clientTxnId: 'GFG8678JH',
                 providerTxnId: 'FAILED',
+                operatorRef: null,
                 number: '9099277662',
                 amount: 11,
+                operator: 'Jio Prepaid',
+                circle: 'Delhi NCR',
                 message: 'Recharge failed: Provider connection timeout',
+                createdAt: '2026-09-07T11:53:47.000Z',
               }, null, 2),
             },
           ]}
