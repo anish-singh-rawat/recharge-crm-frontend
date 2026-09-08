@@ -190,8 +190,9 @@ export default function ExcelOrders() {
   const paymentMutation = useMutation({
     mutationFn: ({ id, paidAmount }) =>
       partnerOrdersApi.updateOrderPayment(id, paidAmount),
-    onSuccess: () => {
-      toast.success('Payment updated successfully!')
+    onSuccess: (res) => {
+      const msg = res.data?.message || res.message || 'Payment updated successfully!'
+      toast.success(msg, { duration: 4000 })
       setEditingPaymentId(null)
       queryClient.invalidateQueries({ queryKey: ['partner-orders'] })
       queryClient.invalidateQueries({ queryKey: ['partner-orders', 'summary'] })
@@ -205,7 +206,8 @@ export default function ExcelOrders() {
     mutationFn: (orderIds) => partnerOrdersApi.bulkMarkAsPaid(orderIds),
     onSuccess: (res) => {
       const data = res.data?.data || {}
-      toast.success(`${data.updated || 0} order(s) marked as fully paid! ✅`)
+      const msg = res.data?.message || res.message || `${data.updated || 0} order(s) marked as fully paid! ✅`
+      toast.success(msg, { duration: 4500 })
       setCheckedIds(new Set())
       queryClient.invalidateQueries({ queryKey: ['partner-orders'] })
       queryClient.invalidateQueries({ queryKey: ['partner-orders', 'summary'] })
