@@ -1143,21 +1143,27 @@ export default function ExcelOrders() {
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
-                  onClick={() => setPaymentModalAmount(String(paymentModalOrder.orderAmount || 0))}
+                  onClick={() => {
+                    const fullPayable = Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100
+                    setPaymentModalAmount(String(fullPayable))
+                  }}
                   className="flex flex-col items-center px-2 py-2 rounded-lg bg-[#DCFCE7] border border-[#86EFAC] text-[#16A34A] hover:bg-[#BBF7D0] transition-colors"
                 >
                   <CheckCircle2 size={15} />
                   <span className="text-[10px] font-bold mt-1">Full Paid</span>
-                  <span className="text-[9px] font-mono">₹{(paymentModalOrder.orderAmount || 0).toFixed(0)}</span>
+                  <span className="text-[9px] font-mono">₹{(Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100).toFixed(2)}</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPaymentModalAmount(String(Math.floor((paymentModalOrder.orderAmount || 0) / 2)))}
+                  onClick={() => {
+                    const halfPayable = Math.round((((paymentModalOrder.orderAmount || 0) * 0.97) / 2) * 100) / 100
+                    setPaymentModalAmount(String(halfPayable))
+                  }}
                   className="flex flex-col items-center px-2 py-2 rounded-lg bg-[#FEF3C7] border border-[#FDE68A] text-[#D97706] hover:bg-[#FDE68A] transition-colors"
                 >
                   <AlertCircle size={15} />
                   <span className="text-[10px] font-bold mt-1">Half Paid</span>
-                  <span className="text-[9px] font-mono">₹{Math.floor((paymentModalOrder.orderAmount || 0) / 2)}</span>
+                  <span className="text-[9px] font-mono">₹{(Math.round((((paymentModalOrder.orderAmount || 0) * 0.97) / 2) * 100) / 100).toFixed(2)}</span>
                 </button>
                 <button
                   type="button"
@@ -1181,7 +1187,7 @@ export default function ExcelOrders() {
                 <input
                   type="number"
                   min="0"
-                  max={paymentModalOrder.orderAmount}
+                  max={Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100}
                   step="any"
                   value={paymentModalAmount}
                   onChange={(e) => setPaymentModalAmount(e.target.value)}
@@ -1192,14 +1198,18 @@ export default function ExcelOrders() {
               </div>
 
               {/* Live remaining due preview */}
-              {paymentModalAmount !== '' && !isNaN(parseFloat(paymentModalAmount)) && (
-                <div className="mt-2 p-2 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] flex justify-between text-xs">
-                  <span className="text-[#64748B]">Remaining Due after save:</span>
-                  <span className={`font-mono font-bold ${Math.max(0, (paymentModalOrder.orderAmount || 0) - parseFloat(paymentModalAmount || 0)) > 0 ? 'text-[#DC2626]' : 'text-[#16A34A]'}`}>
-                    ₹{Math.max(0, (paymentModalOrder.orderAmount || 0) - parseFloat(paymentModalAmount || 0)).toFixed(2)}
-                  </span>
-                </div>
-              )}
+              {paymentModalAmount !== '' && !isNaN(parseFloat(paymentModalAmount)) && (() => {
+                const netPayable = Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100
+                const remDue = Math.max(0, Math.round((netPayable - parseFloat(paymentModalAmount || 0)) * 100) / 100)
+                return (
+                  <div className="mt-2 p-2 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] flex justify-between text-xs">
+                    <span className="text-[#64748B]">Remaining Due after save:</span>
+                    <span className={`font-mono font-bold ${remDue > 0 ? 'text-[#DC2626]' : 'text-[#16A34A]'}`}>
+                      ₹{remDue.toFixed(2)}
+                    </span>
+                  </div>
+                )
+              })()}
             </div>
 
             <div className="flex justify-end gap-3 pt-1">
