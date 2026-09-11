@@ -56,6 +56,7 @@ export default function Reports() {
   const [myRechargeStatus, setMyRechargeStatus] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [limit, setLimit] = useState(20)
 
   const [dateRange, setDateRange] = useState({
     startDate: new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10),
@@ -66,7 +67,9 @@ export default function Reports() {
     setExporting(true)
     try {
       let res
-      const params = { ...dateRange }
+      const params = { ...dateRange, limit: 100000, isExport: true }
+      if (type === 'recharge' && statusFilter) params.status = statusFilter
+      if (type === 'my-recharge' && myRechargeStatus) params.status = myRechargeStatus
 
       if (type === 'recharge') res = await reportsApi.exportRechargeReport(params)
       else if (type === 'wallet') res = await reportsApi.exportWalletReport(params)
@@ -99,12 +102,39 @@ export default function Reports() {
       const filename = `rechpays_${type}_${dateRange.startDate}_to_${dateRange.endDate}.xlsx`
       exportToExcel(rows, filename)
       toast.success(`Exported ${items.length} records`)
-    } catch {
+    } catch (err) {
+      console.error('[Export Error]', err);
       toast.error('Export failed. Please try again.')
     } finally {
       setExporting(false)
     }
   }
+
+  const LimitSelector = () => (
+    <div className="flex items-center gap-1.5 text-xs text-[#475569]">
+      <span className="text-[#94A3B8] font-medium hidden sm:inline">Show:</span>
+      <select
+        value={limit}
+        onChange={(e) => {
+          const newLimit = Number(e.target.value)
+          setLimit(newLimit)
+          setRechargePage(1)
+          setWalletPage(1)
+          setMyRechargePage(1)
+          setMyWalletPage(1)
+        }}
+        className="text-xs font-medium border border-[#E2E8F0] bg-white rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-[#0F172A]"
+      >
+        <option value={10}>10 / page</option>
+        <option value={20}>20 / page</option>
+        <option value={50}>50 / page</option>
+        <option value={100}>100 / page</option>
+        <option value={200}>200 / page</option>
+        <option value={500}>500 / page</option>
+        <option value={1000}>1,000 / page</option>
+      </select>
+    </div>
+  )
 
   const ExportButton = ({ type, label = 'Export Excel' }) => (
     <button
@@ -152,11 +182,11 @@ export default function Reports() {
   })
 
   const { data: rechargeReport, isLoading: rechargeLoading } = useQuery({
-    queryKey: ['reports', 'recharge-admin', { page: rechargePage, status: statusFilter, ...dateRange }],
+    queryKey: ['reports', 'recharge-admin', { page: rechargePage, limit, status: statusFilter, ...dateRange }],
     queryFn: () =>
       reportsApi.getRechargeReport({
         page: rechargePage,
-        limit: 20,
+        limit,
         ...dateRange,
         ...(statusFilter && { status: statusFilter }),
       }),
@@ -165,9 +195,9 @@ export default function Reports() {
   })
 
   const { data: walletReport, isLoading: walletLoading } = useQuery({
-    queryKey: ['reports', 'wallet-admin', { page: walletPage, ...dateRange }],
+    queryKey: ['reports', 'wallet-admin', { page: walletPage, limit, ...dateRange }],
     queryFn: () =>
-      reportsApi.getWalletReport({ page: walletPage, limit: 20, ...dateRange }),
+      reportsApi.getWalletReport({ page: walletPage, limit, ...dateRange }),
     select: (r) => r.data.data,
     enabled: ready && admin && tab === 'wallet',
   })
@@ -186,11 +216,11 @@ export default function Reports() {
   })
 
   const { data: myRechargeReport, isLoading: myRechargeLoading } = useQuery({
-    queryKey: ['reports', 'recharge-my', { page: myRechargePage, status: myRechargeStatus, ...dateRange }],
+    queryKey: ['reports', 'recharge-my', { page: myRechargePage, limit, status: myRechargeStatus, ...dateRange }],
     queryFn: () =>
       reportsApi.getMyRechargeReport({
         page: myRechargePage,
-        limit: 20,
+        limit,
         ...dateRange,
         ...(myRechargeStatus && { status: myRechargeStatus }),
       }),
@@ -199,11 +229,11 @@ export default function Reports() {
   })
 
   const { data: myWalletReport, isLoading: myWalletLoading } = useQuery({
-    queryKey: ['reports', 'wallet-my', { page: myWalletPage, ...dateRange }],
+    queryKey: ['reports', 'wallet-my', { page: myWalletPage, limit, ...dateRange }],
     queryFn: () =>
       reportsApi.getMyWalletReport({
         page: myWalletPage,
-        limit: 20,
+        limit,
         ...dateRange,
       }),
     select: (r) => r.data.data,
@@ -380,6 +410,7 @@ export default function Reports() {
               <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
                 <CardHeader title="Recharge Report" />
                 <div className="flex items-center gap-2 flex-wrap">
+                  <LimitSelector />
                   <select
                     value={statusFilter}
                     onChange={(e) => {
@@ -475,7 +506,10 @@ export default function Reports() {
             <Card padding={false}>
               <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
                 <CardHeader title="Wallet Report" />
-                <ExportButton type="wallet" />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <LimitSelector />
+                  <ExportButton type="wallet" />
+                </div>
               </div>
               {walletLoading ? (
                 <TableSkeleton rows={8} cols={5} />
@@ -623,6 +657,7 @@ export default function Reports() {
               <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
                 <CardHeader title="My Recharge Report" />
                 <div className="flex items-center gap-2 flex-wrap">
+                  <LimitSelector />
                   <select
                     value={myRechargeStatus}
                     onChange={(e) => { setMyRechargeStatus(e.target.value); setMyRechargePage(1) }}
@@ -684,7 +719,10 @@ export default function Reports() {
             <Card padding={false}>
               <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
                 <CardHeader title="My Wallet Report" />
-                <ExportButton type="my-wallet" />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <LimitSelector />
+                  <ExportButton type="my-wallet" />
+                </div>
               </div>
               {myWalletLoading ? (
                 <TableSkeleton rows={8} cols={6} />

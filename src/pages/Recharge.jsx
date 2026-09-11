@@ -145,6 +145,23 @@ export default function Recharge() {
     setSelectedPlan(null)
   }, [operatorId])
 
+  const resetRechargeForm = () => {
+    reset({
+      type: rechargeType || 'MOBILE_PREPAID',
+      mobileNumber: '',
+      operatorId: '',
+      circleId: '',
+      amount: '',
+    })
+    setValue('mobileNumber', '')
+    setValue('operatorId', '')
+    setValue('circleId', '')
+    setValue('amount', '')
+    setSelectedPlan(null)
+    setAutoDetectedId(null)
+    resetDetect()
+  }
+
   useSocket({
     'recharge:update': () => {
       queryClient.invalidateQueries({ queryKey: ['recharge', 'my'] })
@@ -155,6 +172,7 @@ export default function Recharge() {
         prev?.txnId === txn?.txnId ? { ...prev, status: 'SUCCESS' } : prev,
       )
       toast.success('Recharge successful!')
+      resetRechargeForm()
       queryClient.invalidateQueries({ queryKey: ['recharge', 'my'] })
       queryClient.invalidateQueries({ queryKey: ['wallet', 'me'] })
     },
@@ -176,10 +194,7 @@ export default function Recharge() {
       const status = txn?.status
       if (status === 'SUCCESS') {
         toast.success('Recharge successful!')
-        reset({ type: 'MOBILE_PREPAID' })
-        setSelectedPlan(null)
-        setAutoDetectedId(null)
-        resetDetect()
+        resetRechargeForm()
       } else if (status === 'FAILED') {
         toast.error(txn?.providerMessage || res.data?.message || 'Recharge failed', { duration: 6000 })
       } else if (['PENDING', 'PROCESSING', 'INITIATED'].includes(status)) {

@@ -398,6 +398,7 @@ export default function ExcelOrders() {
       .replace(/{orderDate}/g, sample.orderDate || '')
       .replace(/{orderTime}/g, formatOrderTime(sample.orderTime) || '')
       .replace(/{partnerPrmId}/g, sample.partnerPrmId || '')
+      .replace(/{paymentStatus}/g, sample.paymentStatus || ((sample.dueAmount || 0) > 0 ? 'due' : 'paid'))
   }, [messageTemplate, dueOrders, orders])
 
   return (
@@ -589,7 +590,7 @@ export default function ExcelOrders() {
                 {checkedIds.size} order{checkedIds.size > 1 ? 's' : ''} selected
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={() => setCheckedIds(new Set())}
@@ -597,6 +598,19 @@ export default function ExcelOrders() {
               >
                 Clear Selection
               </button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={bulkMarkMutation.isPending || bulkDeleteMutation.isPending || notifyMutation.isPending}
+                onClick={() => {
+                  setSelectedOrderIds([...checkedIds])
+                  setIsNotifyModalOpen(true)
+                }}
+                className="flex items-center gap-1.5 bg-[#7C3AED] hover:bg-[#6D28D9] border-[#6D28D9]"
+              >
+                <Send size={13} />
+                WhatsApp {checkedIds.size} Order{checkedIds.size > 1 ? 's' : ''}
+              </Button>
               <Button
                 variant="primary"
                 size="sm"
@@ -1433,6 +1447,7 @@ export default function ExcelOrders() {
                 '{dueAmount}',
                 '{orderDate}',
                 '{partnerPrmId}',
+                '{paymentStatus}',
               ].map((tag) => (
                 <button
                   key={tag}
@@ -1467,10 +1482,17 @@ export default function ExcelOrders() {
           <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg flex items-center justify-between text-xs">
             <div>
               <p className="font-semibold text-[#0F172A]">Recipient Summary</p>
-              <p className="text-[#64748B] text-[11px] mt-0.5">
-                Total Orders with Due: <b>{summary.dueOrdersCount}</b> • Total Due:{' '}
-                <b className="text-[#DC2626]">₹{summary.totalDue.toFixed(2)}</b>
-              </p>
+              {selectedOrderIds.length > 0 ? (
+                <p className="text-[#64748B] text-[11px] mt-0.5">
+                  Selected Orders: <b>{selectedOrderIds.length}</b>{' '}
+                  <span className="text-[#7C3AED] font-medium">(custom selection)</span>
+                </p>
+              ) : (
+                <p className="text-[#64748B] text-[11px] mt-0.5">
+                  Total Orders with Due: <b>{summary.dueOrdersCount}</b> • Total Due:{' '}
+                  <b className="text-[#DC2626]">₹{summary.totalDue.toFixed(2)}</b>
+                </p>
+              )}
               {summary.partnersMissingMobile > 0 && (
                 <p className="text-[#DC2626] text-[11px] mt-0.5">
                   ⚠️ Note: {summary.partnersMissingMobile} partners have no mobile number and will be skipped.
