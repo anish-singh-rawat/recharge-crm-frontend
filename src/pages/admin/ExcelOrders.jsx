@@ -94,6 +94,10 @@ export default function ExcelOrders() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [paymentModalOrder, setPaymentModalOrder] = useState(null)
   const [paymentModalAmount, setPaymentModalAmount] = useState('')
+  const [denominations, setDenominations] = useState({
+    2000: '', 500: '', 200: '', 100: '', 50: '', 20: '', 10: '',
+    5: '', 2: '', 1: ''
+  })
 
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false)
   const [mobileModalOrder, setMobileModalOrder] = useState(null)
@@ -317,6 +321,7 @@ export default function ExcelOrders() {
   const handleOpenPaymentModal = (order) => {
     setPaymentModalOrder(order)
     setPaymentModalAmount(order.paidAmount ? String(order.paidAmount) : '')
+    setDenominations({ 2000: '', 500: '', 200: '', 100: '', 50: '', 20: '', 10: '', 5: '', 2: '', 1: '' })
     setIsPaymentModalOpen(true)
   }
 
@@ -797,18 +802,31 @@ export default function ExcelOrders() {
                             </button>
                           </div>
                         ) : (order.paidAmount || 0) > 0 ? (
-                          <div className="flex items-center justify-end gap-1">
-                            <span className="text-[#16A34A] font-semibold">
-                              ₹{(order.paidAmount).toFixed(2)}
-                            </span>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <div className="text-right">
+                              <span className="text-[#16A34A] font-semibold">
+                                ₹{(order.paidAmount).toFixed(2)}
+                              </span>
+                              <div
+                                className="text-[10px] text-[#2563EB] hover:text-[#1D4ED8] font-sans leading-tight mt-0.5 cursor-pointer hover:underline flex items-center justify-end gap-0.5"
+                                onClick={() => handleOpenPaymentModal(order)}
+                                title="Click to view complete payment receiving history"
+                              >
+                                <span>🕐</span>
+                                <span className="whitespace-nowrap font-medium">
+                                  {(order.paymentHistory || []).length > 1
+                                    ? `${order.paymentHistory.length} payments`
+                                    : (order.paymentHistory || []).length === 1
+                                    ? formatDateTime(order.paymentHistory[0].receivedAt)
+                                    : formatDateTime(order.updatedAt || order.createdAt)}
+                                </span>
+                              </div>
+                            </div>
                             <button
                               type="button"
-                              onClick={() => {
-                                setEditingPaymentId(order._id)
-                                setPaymentInputVal(String(order.paidAmount))
-                              }}
+                              onClick={() => handleOpenPaymentModal(order)}
                               className="text-[#94A3B8] hover:text-[#2563EB] p-0.5 rounded transition-colors"
-                              title="Edit Paid Amount"
+                              title="Edit Paid Amount & View History"
                             >
                               <Edit2 size={12} />
                             </button>
@@ -887,11 +905,15 @@ export default function ExcelOrders() {
                           <button
                             type="button"
                             onClick={() => handleOpenPaymentModal(order)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#EFF6FF] text-[#2563EB] hover:bg-[#DBEAFE] border border-[#BFDBFE] text-[11px] font-semibold transition-colors"
-                            title="Edit Payment Amount"
+                            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors ${
+                              (order.paidAmount || 0) > 0
+                                ? 'bg-[#F0FDF4] text-[#16A34A] hover:bg-[#DCFCE7] border-[#BBF7D0]'
+                                : 'bg-[#EFF6FF] text-[#2563EB] hover:bg-[#DBEAFE] border-[#BFDBFE]'
+                            }`}
+                            title="View Payment History & Edit Amount"
                           >
                             <Wallet size={12} />
-                            Edit Pay
+                            {(order.paidAmount || 0) > 0 ? 'Pay & History' : 'Edit Pay'}
                           </button>
                           <button
                             type="button"
@@ -1120,147 +1142,318 @@ export default function ExcelOrders() {
             setPaymentModalOrder(null)
           }
         }}
-        title="Update Payment Amount"
-        size="sm"
+        title={paymentModalOrder?.paidAmount > 0 ? "Payment & Receiving History" : "Record Payment Amount"}
+        size="md"
       >
-        {paymentModalOrder && (
-          <form onSubmit={handleSaveModalPayment} className="space-y-4">
-            {/* Order Info */}
-            <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg space-y-1.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-[#64748B]">Order ID</span>
-                <span className="font-mono font-semibold text-[#0F172A]">{paymentModalOrder.orderId}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#64748B]">Partner</span>
-                <span className="font-medium text-[#0F172A] truncate max-w-[180px]" title={paymentModalOrder.partnerName}>{paymentModalOrder.partnerName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#64748B]">Order Amount</span>
-                <span className="font-mono font-bold text-[#0F172A]">₹{paymentModalOrder.orderAmount?.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between border-t border-[#E2E8F0] pt-1.5 mt-1">
-                <span className="text-[#64748B]">Current Paid</span>
-                <span className="font-mono font-semibold text-[#16A34A]">₹{(paymentModalOrder.paidAmount || 0).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#64748B]">Current Due</span>
-                <span className={`font-mono font-bold ${(paymentModalOrder.dueAmount || 0) > 0 ? 'text-[#DC2626]' : 'text-[#16A34A]'}`}>
-                  ₹{(paymentModalOrder.dueAmount || 0).toFixed(2)}
-                </span>
-              </div>
-            </div>
+        {paymentModalOrder && (() => {
+          const NOTES = [2000, 500, 200, 100, 50, 20, 10]
+          const COINS = [5, 2, 1]
+          const denomTotal = [...NOTES, ...COINS].reduce((sum, d) => {
+            const cnt = parseInt(denominations[d] || '0', 10)
+            return sum + (isNaN(cnt) ? 0 : cnt * d)
+          }, 0)
+          const hasDenomInput = [...NOTES, ...COINS].some((d) => parseInt(denominations[d] || '0', 10) > 0)
+          const netPayable = Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100
+          const currentPaidAmt = parseFloat(paymentModalAmount || '0') || 0
+          const remDue = Math.max(0, Math.round((netPayable - currentPaidAmt) * 100) / 100)
 
-            {/* Quick Preset Buttons */}
-            <div>
-              <p className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider mb-2">Quick Presets</p>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const fullPayable = Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100
-                    setPaymentModalAmount(String(fullPayable))
-                  }}
-                  className="flex flex-col items-center px-2 py-2 rounded-lg bg-[#DCFCE7] border border-[#86EFAC] text-[#16A34A] hover:bg-[#BBF7D0] transition-colors"
-                >
-                  <CheckCircle2 size={15} />
-                  <span className="text-[10px] font-bold mt-1">Full Paid</span>
-                  <span className="text-[9px] font-mono">₹{(Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100).toFixed(2)}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const halfPayable = Math.round((((paymentModalOrder.orderAmount || 0) * 0.97) / 2) * 100) / 100
-                    setPaymentModalAmount(String(halfPayable))
-                  }}
-                  className="flex flex-col items-center px-2 py-2 rounded-lg bg-[#FEF3C7] border border-[#FDE68A] text-[#D97706] hover:bg-[#FDE68A] transition-colors"
-                >
-                  <AlertCircle size={15} />
-                  <span className="text-[10px] font-bold mt-1">Half Paid</span>
-                  <span className="text-[9px] font-mono">₹{(Math.round((((paymentModalOrder.orderAmount || 0) * 0.97) / 2) * 100) / 100).toFixed(2)}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentModalAmount('0')}
-                  className="flex flex-col items-center px-2 py-2 rounded-lg bg-[#FEE2E2] border border-[#FECACA] text-[#DC2626] hover:bg-[#FECACA] transition-colors"
-                >
-                  <X size={15} />
-                  <span className="text-[10px] font-bold mt-1">Unpaid</span>
-                  <span className="text-[9px] font-mono">₹0</span>
-                </button>
-              </div>
-            </div>
+          const rawHistory = paymentModalOrder.paymentHistory || []
+          const historyList = rawHistory.length > 0
+            ? rawHistory
+            : ((paymentModalOrder.paidAmount || 0) > 0
+                ? [{
+                    receivedAmount: paymentModalOrder.paidAmount,
+                    paidBefore: 0,
+                    paidAfter: paymentModalOrder.paidAmount,
+                    dueAfter: paymentModalOrder.dueAmount || 0,
+                    receivedAt: paymentModalOrder.updatedAt || paymentModalOrder.createdAt,
+                    note: 'Initial payment recorded',
+                  }]
+                : [])
 
-            {/* Custom Amount Input */}
-            <div>
-              <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
-                Enter Custom Paid Amount
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-[#64748B]">₹</span>
-                <input
-                  type="number"
-                  min="0"
-                  max={Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100}
-                  step="any"
-                  value={paymentModalAmount}
-                  onChange={(e) => setPaymentModalAmount(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2.5 text-sm font-mono border border-[#CBD5E1] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent"
-                  placeholder="0.00"
-                  autoFocus
-                />
+          const handleDenomChange = (denom, val) => {
+            const next = { ...denominations, [denom]: val }
+            setDenominations(next)
+            const total = [...NOTES, ...COINS].reduce((sum, d) => {
+              const cnt = parseInt(next[d] || '0', 10)
+              return sum + (isNaN(cnt) ? 0 : cnt * d)
+            }, 0)
+            if (total > 0) setPaymentModalAmount(String(total))
+          }
+
+          return (
+            <form onSubmit={handleSaveModalPayment} className="space-y-4">
+              {/* Order Info */}
+              <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-[#64748B]">Order ID</span>
+                  <span className="font-mono font-semibold text-[#0F172A]">{paymentModalOrder.orderId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#64748B]">Partner</span>
+                  <span className="font-medium text-[#0F172A] truncate max-w-[180px]" title={paymentModalOrder.partnerName}>{paymentModalOrder.partnerName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#64748B]">Order Amount</span>
+                  <span className="font-mono font-bold text-[#0F172A]">₹{paymentModalOrder.orderAmount?.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#64748B]">Net Payable (after 3% comm.)</span>
+                  <span className="font-mono font-bold text-[#2563EB]">₹{netPayable.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between border-t border-[#E2E8F0] pt-1.5 mt-1">
+                  <span className="text-[#64748B]">Current Paid</span>
+                  <span className="font-mono font-semibold text-[#16A34A]">₹{(paymentModalOrder.paidAmount || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#64748B]">Current Due</span>
+                  <span className={`font-mono font-bold ${(paymentModalOrder.dueAmount || 0) > 0 ? 'text-[#DC2626]' : 'text-[#16A34A]'}`}>
+                    ₹{(paymentModalOrder.dueAmount || 0).toFixed(2)}
+                  </span>
+                </div>
               </div>
 
-              {/* Live remaining due preview */}
-              {paymentModalAmount !== '' && !isNaN(parseFloat(paymentModalAmount)) && (() => {
-                const netPayable = Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100
-                const remDue = Math.max(0, Math.round((netPayable - parseFloat(paymentModalAmount || 0)) * 100) / 100)
-                return (
+              {/* Payment History Timeline */}
+              <div className="p-3 bg-white border border-[#CBD5E1] rounded-lg shadow-2xs">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[11px] font-bold text-[#0F172A] uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🕐 Payment Receiving History</span>
+                  </p>
+                  <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded ${historyList.length > 0 ? 'bg-[#DCFCE7] text-[#15803D]' : 'bg-[#F1F5F9] text-[#64748B]'}`}>
+                    {historyList.length} record{historyList.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {historyList.length > 0 ? (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                    {[...historyList].reverse().map((h, idx) => (
+                      <div key={idx} className="flex items-start gap-2.5 p-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-[11px]">
+                        <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${h.receivedAmount > 0 ? 'bg-[#16A34A]' : h.receivedAmount < 0 ? 'bg-[#DC2626]' : 'bg-[#94A3B8]'}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-center">
+                            <span className={`font-mono font-bold ${h.receivedAmount > 0 ? 'text-[#16A34A]' : h.receivedAmount < 0 ? 'text-[#DC2626]' : 'text-[#475569]'}`}>
+                              {h.receivedAmount > 0 ? '+' : ''}₹{Math.abs(h.receivedAmount).toFixed(2)}
+                            </span>
+                            <span className="text-[#0F172A] font-medium text-[10px]">{formatDateTime(h.receivedAt)}</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-0.5 text-[#64748B]">
+                            <span>Paid Total: <b className="text-[#0F172A]">₹{(h.paidAfter || 0).toFixed(2)}</b></span>
+                            <span>•</span>
+                            <span>Remaining Due: <b className={(h.dueAfter || 0) > 0 ? 'text-[#DC2626]' : 'text-[#16A34A]'}>₹{(h.dueAfter || 0).toFixed(2)}</b></span>
+                            {h.note && (
+                              <>
+                                <span>•</span>
+                                <span className="italic text-[#64748B]">{h.note}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[#64748B] italic py-1">
+                    No payment received yet for this order. When you record a payment, the exact date, time, and received amount will appear here.
+                  </p>
+                )}
+              </div>
+
+              {/* ── Cash Denomination Calculator ─────────────────── */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">💵 Cash Denominations</p>
+                  {hasDenomInput && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDenominations({ 2000: '', 500: '', 200: '', 100: '', 50: '', 20: '', 10: '', 5: '', 2: '', 1: '' })
+                        setPaymentModalAmount('')
+                      }}
+                      className="text-[10px] text-[#DC2626] hover:underline"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
+
+                {/* Notes */}
+                <p className="text-[10px] font-semibold text-[#94A3B8] uppercase tracking-wide mb-1.5">Notes</p>
+                <div className="grid grid-cols-4 gap-1.5 mb-3">
+                  {NOTES.map((d) => (
+                    <div key={d} className="flex flex-col gap-0.5">
+                      <label className="text-[10px] text-center font-bold text-[#475569] bg-[#F1F5F9] rounded px-1 py-0.5 border border-[#E2E8F0]">₹{d}</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={denominations[d]}
+                        onChange={(e) => handleDenomChange(d, e.target.value)}
+                        placeholder="0"
+                        className="w-full text-center text-xs font-mono border border-[#CBD5E1] rounded-md px-1 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      />
+                      {parseInt(denominations[d] || '0', 10) > 0 && (
+                        <span className="text-[9px] text-center text-[#7C3AED] font-mono font-semibold">
+                          ₹{(parseInt(denominations[d]) * d).toLocaleString('en-IN')}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Coins */}
+                <p className="text-[10px] font-semibold text-[#94A3B8] uppercase tracking-wide mb-1.5">Coins</p>
+                <div className="grid grid-cols-4 gap-1.5 mb-3">
+                  {COINS.map((d) => (
+                    <div key={d} className="flex flex-col gap-0.5">
+                      <label className="text-[10px] text-center font-bold text-[#475569] bg-[#FEF3C7] rounded px-1 py-0.5 border border-[#FDE68A]">₹{d}</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={denominations[d]}
+                        onChange={(e) => handleDenomChange(d, e.target.value)}
+                        placeholder="0"
+                        className="w-full text-center text-xs font-mono border border-[#CBD5E1] rounded-md px-1 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#F59E0B]"
+                      />
+                      {parseInt(denominations[d] || '0', 10) > 0 && (
+                        <span className="text-[9px] text-center text-[#D97706] font-mono font-semibold">
+                          ₹{(parseInt(denominations[d]) * d).toLocaleString('en-IN')}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                  {/* spacer */}
+                  <div />
+                </div>
+
+                {/* Denomination Total Banner */}
+                {hasDenomInput && (
+                  <div className="flex items-center justify-between p-2.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg">
+                    <div className="flex items-center gap-1.5">
+                      <DollarSign size={14} className="text-[#2563EB]" />
+                      <span className="text-xs font-bold text-[#1E40AF]">Cash Total</span>
+                    </div>
+                    <span className="text-sm font-mono font-extrabold text-[#2563EB]">₹{denomTotal.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Preset Buttons */}
+              <div>
+                <p className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider mb-2">Quick Presets</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const fullPayable = Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100
+                      setPaymentModalAmount(String(fullPayable))
+                      setDenominations({ 2000: '', 500: '', 200: '', 100: '', 50: '', 20: '', 10: '', 5: '', 2: '', 1: '' })
+                    }}
+                    className="flex flex-col items-center px-2 py-2 rounded-lg bg-[#DCFCE7] border border-[#86EFAC] text-[#16A34A] hover:bg-[#BBF7D0] transition-colors"
+                  >
+                    <CheckCircle2 size={15} />
+                    <span className="text-[10px] font-bold mt-1">Full Paid</span>
+                    <span className="text-[9px] font-mono">₹{(Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100).toFixed(2)}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const halfPayable = Math.round((((paymentModalOrder.orderAmount || 0) * 0.97) / 2) * 100) / 100
+                      setPaymentModalAmount(String(halfPayable))
+                      setDenominations({ 2000: '', 500: '', 200: '', 100: '', 50: '', 20: '', 10: '', 5: '', 2: '', 1: '' })
+                    }}
+                    className="flex flex-col items-center px-2 py-2 rounded-lg bg-[#FEF3C7] border border-[#FDE68A] text-[#D97706] hover:bg-[#FDE68A] transition-colors"
+                  >
+                    <AlertCircle size={15} />
+                    <span className="text-[10px] font-bold mt-1">Half Paid</span>
+                    <span className="text-[9px] font-mono">₹{(Math.round((((paymentModalOrder.orderAmount || 0) * 0.97) / 2) * 100) / 100).toFixed(2)}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentModalAmount('0')
+                      setDenominations({ 2000: '', 500: '', 200: '', 100: '', 50: '', 20: '', 10: '', 5: '', 2: '', 1: '' })
+                    }}
+                    className="flex flex-col items-center px-2 py-2 rounded-lg bg-[#FEE2E2] border border-[#FECACA] text-[#DC2626] hover:bg-[#FECACA] transition-colors"
+                  >
+                    <X size={15} />
+                    <span className="text-[10px] font-bold mt-1">Unpaid</span>
+                    <span className="text-[9px] font-mono">₹0</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Custom Amount Input */}
+              <div>
+                <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                  Total Paid Amount
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-[#64748B]">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max={Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100}
+                    step="any"
+                    value={paymentModalAmount}
+                    onChange={(e) => {
+                      setPaymentModalAmount(e.target.value)
+                      // Clear denom inputs when manually typing
+                      setDenominations({ 2000: '', 500: '', 200: '', 100: '', 50: '', 20: '', 10: '', 5: '', 2: '', 1: '' })
+                    }}
+                    className="w-full pl-8 pr-3 py-2.5 text-sm font-mono border border-[#CBD5E1] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent"
+                    placeholder="0.00"
+                    autoFocus={!hasDenomInput}
+                  />
+                </div>
+
+                {/* Live remaining due preview */}
+                {paymentModalAmount !== '' && !isNaN(parseFloat(paymentModalAmount)) && (
                   <div className="mt-2 p-2 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] flex justify-between text-xs">
                     <span className="text-[#64748B]">Remaining Due after save:</span>
                     <span className={`font-mono font-bold ${remDue > 0 ? 'text-[#DC2626]' : 'text-[#16A34A]'}`}>
                       ₹{remDue.toFixed(2)}
                     </span>
                   </div>
-                )
-              })()}
-            </div>
-
-            <div className="flex justify-end gap-3 pt-1">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setIsPaymentModalOpen(false)
-                  setPaymentModalOrder(null)
-                }}
-                disabled={paymentMutation.isPending}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                size="sm"
-                disabled={paymentMutation.isPending || paymentModalAmount === ''}
-                className="flex items-center gap-1.5"
-              >
-                {paymentMutation.isPending ? (
-                  <>
-                    <RefreshCw size={13} className="animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Wallet size={13} />
-                    Save Payment
-                  </>
                 )}
-              </Button>
-            </div>
-          </form>
-        )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-1">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setIsPaymentModalOpen(false)
+                    setPaymentModalOrder(null)
+                  }}
+                  disabled={paymentMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={paymentMutation.isPending || paymentModalAmount === ''}
+                  className="flex items-center gap-1.5"
+                >
+                  {paymentMutation.isPending ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Wallet size={13} />
+                      Save Payment
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          )
+        })()}
       </Modal>
 
 
