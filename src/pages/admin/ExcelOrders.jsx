@@ -21,6 +21,8 @@ import {
   Square,
   BadgeCheck,
   Trash2,
+  Calendar,
+  Download,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { partnerOrdersApi } from '@/api/partnerOrders'
@@ -32,6 +34,7 @@ import Modal from '@/components/ui/Modal'
 import Pagination from '@/components/ui/Pagination'
 import { useSocket } from '@/hooks/useSocket'
 import { formatDateTime } from '@/utils/format'
+import { exportToExcel } from '@/utils/exportExcel'
 
 export function formatOrderTime(rawTime) {
   if (!rawTime && rawTime !== 0) return '—'
@@ -84,6 +87,9 @@ export default function ExcelOrders() {
   const [limit] = useState(25)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [isExporting, setIsExporting] = useState(false)
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false)
@@ -134,18 +140,20 @@ export default function ExcelOrders() {
     isFetching: isFetchingOrders,
     refetch: refetchOrders,
   } = useQuery({
-    queryKey: ['partner-orders', { page, limit, search, status: statusFilter }],
+    queryKey: ['partner-orders', { page, limit, search, status: statusFilter, startDate, endDate }],
     queryFn: () =>
       partnerOrdersApi
-        .listOrders({ page, limit, search, status: statusFilter })
+        .listOrders({ page, limit, search, status: statusFilter, startDate, endDate })
         .then((res) => res.data?.data || res.data || {}),
   })
 
 
   const { data: summaryData, refetch: refetchSummary } = useQuery({
-    queryKey: ['partner-orders', 'summary'],
+    queryKey: ['partner-orders', 'summary', { startDate, endDate }],
     queryFn: () =>
-      partnerOrdersApi.getSummary().then((res) => res.data?.data || res.data || {}),
+      partnerOrdersApi
+        .getSummary({ startDate: startDate || undefined, endDate: endDate || undefined })
+        .then((res) => res.data?.data || res.data || {}),
   })
 
   const orders = ordersData?.orders || []
@@ -406,6 +414,82 @@ export default function ExcelOrders() {
       .replace(/{paymentStatus}/g, sample.paymentStatus || ((sample.dueAmount || 0) > 0 ? 'due' : 'paid'))
   }, [messageTemplate, dueOrders, orders])
 
+  const handleClearDateFilter = () => {
+    setStartDate('')
+    setEndDate('')
+    setPage(1)
+  }
+
+  const handleExportExcel = async () => {
+    setIsExporting(true)
+    try {
+      const res = await partnerOrdersApi.listOrders({
+        search,
+        status: statusFilter,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        isExport: true,
+        limit: 100000,
+      })
+      const allOrders = res.data?.data?.orders || []
+      if (allOrders.length === 0) {
+        toast.error('No orders found for the selected filters.')
+        return
+      }
+
+      const headers = [
+        'Order ID',
+        'Order Date',
+        'Order Time',
+        'Partner Name',
+        'Partner PRM ID',
+        'Customer Mobile',
+        'Order Amount (₹)',
+        'Net Payable (₹)',
+        'Paid Amount (₹)',
+        'Due Amount (₹)',
+        'Payment Status',
+        'Created Date & Time',
+      ]
+
+      const rows = allOrders.map((o) => {
+        const netPayable = Math.round(((o.orderAmount || 0) / 1.03) * 100) / 100
+        const createdAt = o.createdAt ? new Date(o.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : ''
+        return [
+          o.orderId || '',
+          o.orderDate || '',
+          formatOrderTime(o.orderTime),
+          o.partnerName || '',
+          o.partnerPrmId || '',
+          o.partnerMobile || '',
+          Number((o.orderAmount || 0).toFixed(2)),
+          Number(netPayable.toFixed(2)),
+          Number((o.paidAmount || 0).toFixed(2)),
+          Number((o.dueAmount || 0).toFixed(2)),
+          o.paymentStatus || '',
+          createdAt,
+        ]
+      })
+
+      const dateTag =
+        startDate && endDate
+          ? `_${startDate}_to_${endDate}`
+          : startDate
+          ? `_from_${startDate}`
+          : endDate
+          ? `_until_${endDate}`
+          : ''
+      const filename = `excel_orders${dateTag}_${new Date().toISOString().slice(0, 10)}.xlsx`
+
+      exportToExcel([headers, ...rows], filename)
+      toast.success(`Exported ${allOrders.length} orders to Excel!`)
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to export Excel')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -461,6 +545,20 @@ export default function ExcelOrders() {
             <Upload size={14} />
             Import Excel
           </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            className="flex items-center gap-1.5 border-[#16A34A] text-[#16A34A] hover:bg-[#F0FDF4]"
+          >
+            {isExporting ? (
+              <><RefreshCw size={14} className="animate-spin" /> Exporting...</>
+            ) : (
+              <><Download size={14} /> Export Excel</>
+            )}
+          </Button>
         </div>
       </div>
 
@@ -506,84 +604,141 @@ export default function ExcelOrders() {
       {/* Main Table Card */}
       <Card className="overflow-hidden shadow-xs border-[#E2E8F0]">
         {/* Filter Bar */}
-        <div className="p-4 border-b border-[#F1F5F9] bg-[#F8FAFC] flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex flex-1 items-center gap-2 max-w-md">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={16} />
-              <input
-                type="text"
-                placeholder="Search by Order ID, Partner Name, PRM ID..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value)
-                  setPage(1)
+        <div className="p-4 border-b border-[#F1F5F9] bg-[#F8FAFC] flex flex-col gap-3">
+          {/* Row 1: Search + Status + Refresh */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex flex-1 items-center gap-2 max-w-md">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={16} />
+                <input
+                  type="text"
+                  placeholder="Search by Order ID, Partner Name, PRM ID..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value)
+                    setPage(1)
+                  }}
+                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-[#E2E8F0] text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter('all')
+                    setPage(1)
+                  }}
+                  className={`px-3 py-1 rounded-md font-medium transition-colors ${
+                    statusFilter === 'all'
+                      ? 'bg-[#2563EB] text-white shadow-xs'
+                      : 'text-[#64748B] hover:text-[#0F172A]'
+                  }`}
+                >
+                  All Orders
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter('due')
+                    setPage(1)
+                  }}
+                  className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-1 ${
+                    statusFilter === 'due'
+                      ? 'bg-[#DC2626] text-white shadow-xs'
+                      : 'text-[#64748B] hover:text-[#DC2626]'
+                  }`}
+                >
+                  Pending Dues
+                  {summary.dueOrdersCount > 0 && (
+                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter('paid')
+                    setPage(1)
+                  }}
+                  className={`px-3 py-1 rounded-md font-medium transition-colors ${
+                    statusFilter === 'paid'
+                      ? 'bg-[#16A34A] text-white shadow-xs'
+                      : 'text-[#64748B] hover:text-[#16A34A]'
+                  }`}
+                >
+                  Fully Paid
+                </button>
+              </div>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  refetchOrders()
+                  refetchSummary()
                 }}
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-              />
+                className="p-1.5"
+                title="Refresh Data"
+              >
+                <RefreshCw size={14} className={isFetchingOrders ? 'animate-spin' : ''} />
+              </Button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-[#E2E8F0] text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setStatusFilter('all')
-                  setPage(1)
-                }}
-                className={`px-3 py-1 rounded-md font-medium transition-colors ${
-                  statusFilter === 'all'
-                    ? 'bg-[#2563EB] text-white shadow-xs'
-                    : 'text-[#64748B] hover:text-[#0F172A]'
-                }`}
-              >
-                All Orders
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStatusFilter('due')
-                  setPage(1)
-                }}
-                className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-1 ${
-                  statusFilter === 'due'
-                    ? 'bg-[#DC2626] text-white shadow-xs'
-                    : 'text-[#64748B] hover:text-[#DC2626]'
-                }`}
-              >
-                Pending Dues
-                {summary.dueOrdersCount > 0 && (
-                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStatusFilter('paid')
-                  setPage(1)
-                }}
-                className={`px-3 py-1 rounded-md font-medium transition-colors ${
-                  statusFilter === 'paid'
-                    ? 'bg-[#16A34A] text-white shadow-xs'
-                    : 'text-[#64748B] hover:text-[#16A34A]'
-                }`}
-              >
-                Fully Paid
-              </button>
+          {/* Row 2: Date Range Filter */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-[#64748B] font-medium">
+              <Calendar size={14} className="text-[#2563EB]" />
+              Filter by Created Date:
             </div>
-
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                refetchOrders()
-                refetchSummary()
-              }}
-              className="p-1.5"
-              title="Refresh Data"
-            >
-              <RefreshCw size={14} className={isFetchingOrders ? 'animate-spin' : ''} />
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1">
+                <label className="text-[11px] text-[#94A3B8] font-medium whitespace-nowrap">From</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value)
+                    setPage(1)
+                  }}
+                  className="text-xs bg-white border border-[#CBD5E1] rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-[#0F172A]"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <label className="text-[11px] text-[#94A3B8] font-medium whitespace-nowrap">To</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={(e) => {
+                    setEndDate(e.target.value)
+                    setPage(1)
+                  }}
+                  className="text-xs bg-white border border-[#CBD5E1] rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-[#0F172A]"
+                />
+              </div>
+              {(startDate || endDate) && (
+                <button
+                  type="button"
+                  onClick={handleClearDateFilter}
+                  className="flex items-center gap-1 text-[11px] text-[#DC2626] hover:text-[#B91C1C] font-medium px-2 py-1 rounded-md bg-[#FEE2E2] hover:bg-[#FECACA] transition-colors"
+                >
+                  <X size={11} />
+                  Clear Dates
+                </button>
+              )}
+              {(startDate || endDate) && (
+                <span className="text-[11px] text-[#2563EB] font-medium bg-[#EFF6FF] px-2 py-1 rounded-full">
+                  {startDate && endDate
+                    ? `${startDate} → ${endDate}`
+                    : startDate
+                    ? `From ${startDate}`
+                    : `Until ${endDate}`}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1153,7 +1308,7 @@ export default function ExcelOrders() {
             return sum + (isNaN(cnt) ? 0 : cnt * d)
           }, 0)
           const hasDenomInput = [...NOTES, ...COINS].some((d) => parseInt(denominations[d] || '0', 10) > 0)
-          const netPayable = Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100
+          const netPayable = Math.round(((paymentModalOrder.orderAmount || 0) / 1.03) * 100) / 100
           const currentPaidAmt = parseFloat(paymentModalAmount || '0') || 0
           const remDue = Math.max(0, Math.round((netPayable - currentPaidAmt) * 100) / 100)
 
@@ -1198,7 +1353,7 @@ export default function ExcelOrders() {
                   <span className="font-mono font-bold text-[#0F172A]">₹{paymentModalOrder.orderAmount?.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#64748B]">Net Payable (after 3% comm.)</span>
+                  <span className="text-[#64748B]">Net Payable (excl. 3% interest)</span>
                   <span className="font-mono font-bold text-[#2563EB]">₹{netPayable.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between border-t border-[#E2E8F0] pt-1.5 mt-1">
@@ -1345,7 +1500,7 @@ export default function ExcelOrders() {
                   <button
                     type="button"
                     onClick={() => {
-                      const fullPayable = Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100
+                      const fullPayable = Math.round(((paymentModalOrder.orderAmount || 0) / 1.03) * 100) / 100
                       setPaymentModalAmount(String(fullPayable))
                       setDenominations({ 2000: '', 500: '', 200: '', 100: '', 50: '', 20: '', 10: '', 5: '', 2: '', 1: '' })
                     }}
@@ -1353,12 +1508,12 @@ export default function ExcelOrders() {
                   >
                     <CheckCircle2 size={15} />
                     <span className="text-[10px] font-bold mt-1">Full Paid</span>
-                    <span className="text-[9px] font-mono">₹{(Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100).toFixed(2)}</span>
+                    <span className="text-[9px] font-mono">₹{(Math.round(((paymentModalOrder.orderAmount || 0) / 1.03) * 100) / 100).toFixed(2)}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      const halfPayable = Math.round((((paymentModalOrder.orderAmount || 0) * 0.97) / 2) * 100) / 100
+                      const halfPayable = Math.round((((paymentModalOrder.orderAmount || 0) / 1.03) / 2) * 100) / 100
                       setPaymentModalAmount(String(halfPayable))
                       setDenominations({ 2000: '', 500: '', 200: '', 100: '', 50: '', 20: '', 10: '', 5: '', 2: '', 1: '' })
                     }}
@@ -1366,7 +1521,7 @@ export default function ExcelOrders() {
                   >
                     <AlertCircle size={15} />
                     <span className="text-[10px] font-bold mt-1">Half Paid</span>
-                    <span className="text-[9px] font-mono">₹{(Math.round((((paymentModalOrder.orderAmount || 0) * 0.97) / 2) * 100) / 100).toFixed(2)}</span>
+                    <span className="text-[9px] font-mono">₹{(Math.round((((paymentModalOrder.orderAmount || 0) / 1.03) / 2) * 100) / 100).toFixed(2)}</span>
                   </button>
                   <button
                     type="button"
@@ -1393,7 +1548,7 @@ export default function ExcelOrders() {
                   <input
                     type="number"
                     min="0"
-                    max={Math.round(((paymentModalOrder.orderAmount || 0) * 0.97) * 100) / 100}
+                    max={Math.round(((paymentModalOrder.orderAmount || 0) / 1.03) * 100) / 100}
                     step="any"
                     value={paymentModalAmount}
                     onChange={(e) => {

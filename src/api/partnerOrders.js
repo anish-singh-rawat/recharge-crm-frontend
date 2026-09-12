@@ -8,7 +8,7 @@ export const partnerOrdersApi = {
 
   listOrders: (params) => api.get('/partner-orders', { params }),
 
-  getSummary: () => api.get('/partner-orders/summary'),
+  getSummary: (params) => api.get('/partner-orders/summary', { params }),
 
   updatePartnerMobile: (prmId, mobileNumber) =>
     api.patch(`/partner-orders/partner/${encodeURIComponent(prmId)}/mobile`, {

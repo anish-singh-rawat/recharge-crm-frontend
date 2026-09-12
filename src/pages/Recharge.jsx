@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Zap, Loader, CheckCircle } from 'lucide-react'
+import { Zap, Loader, CheckCircle, CheckCircle2, XCircle, Clock, AlertTriangle, Smartphone, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { rechargeApi } from '@/api/recharge'
 import { operatorsApi } from '@/api/operators'
@@ -12,6 +12,7 @@ import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Card, { CardHeader } from '@/components/ui/Card'
+import Modal from '@/components/ui/Modal'
 import StatusBadge from '@/components/ui/StatusBadge'
 import { TableSkeleton } from '@/components/ui/LoadingSpinner'
 import Pagination from '@/components/ui/Pagination'
@@ -45,6 +46,13 @@ export default function Recharge() {
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [lastTxn, setLastTxn] = useState(null)
   const [autoDetectedId, setAutoDetectedId] = useState(null)
+
+  const [rechargeModal, setRechargeModal] = useState({
+    isOpen: false,
+    step: 'CONFIRM', // 'CONFIRM' | 'PROCESSING' | 'RESULT'
+    data: null,
+    result: null,
+  })
 
   const {
     register,
@@ -171,8 +179,28 @@ export default function Recharge() {
       setLastTxn((prev) =>
         prev?.txnId === txn?.txnId ? { ...prev, status: 'SUCCESS' } : prev,
       )
+      setRechargeModal((prev) => {
+        if (
+          prev.isOpen &&
+          (prev.result?.txn?.txnId === txn?.txnId ||
+            prev.data?.mobileNumber === txn?.mobileNumber)
+        ) {
+          return {
+            ...prev,
+            step: 'RESULT',
+            result: {
+              isSuccess: true,
+              isFailed: false,
+              isPending: false,
+              status: 'SUCCESS',
+              txn,
+              message: 'Recharge completed successfully!',
+            },
+          }
+        }
+        return prev
+      })
       toast.success('Recharge successful!')
-      resetRechargeForm()
       queryClient.invalidateQueries({ queryKey: ['recharge', 'my'] })
       queryClient.invalidateQueries({ queryKey: ['wallet', 'me'] })
     },
@@ -181,6 +209,27 @@ export default function Recharge() {
       setLastTxn((prev) =>
         prev?.txnId === txn?.txnId ? { ...prev, status: 'FAILED' } : prev,
       )
+      setRechargeModal((prev) => {
+        if (
+          prev.isOpen &&
+          (prev.result?.txn?.txnId === txn?.txnId ||
+            prev.data?.mobileNumber === txn?.mobileNumber)
+        ) {
+          return {
+            ...prev,
+            step: 'RESULT',
+            result: {
+              isSuccess: false,
+              isFailed: true,
+              isPending: false,
+              status: 'FAILED',
+              txn,
+              message: txn?.providerMessage || 'Recharge failed',
+            },
+          }
+        }
+        return prev
+      })
       toast.error(txn?.providerMessage || 'Recharge failed', { duration: 6000 })
       queryClient.invalidateQueries({ queryKey: ['recharge', 'my'] })
     },
@@ -192,9 +241,28 @@ export default function Recharge() {
       const txn = res.data.data?.transaction || res.data.data
       setLastTxn(txn)
       const status = txn?.status
+      queryClient.invalidateQueries({ queryKey: ['recharge', 'my'] })
+      queryClient.invalidateQueries({ queryKey: ['wallet', 'me'] })
+
+      setRechargeModal((prev) => ({
+        ...prev,
+        step: 'RESULT',
+        result: {
+          isSuccess: status === 'SUCCESS',
+          isFailed: status === 'FAILED',
+          isPending: ['PENDING', 'PROCESSING', 'INITIATED'].includes(status),
+          status,
+          txn,
+          message:
+            txn?.statusMessage ||
+            txn?.providerMessage ||
+            res.data?.message ||
+            (status === 'SUCCESS' ? 'Recharge completed successfully!' : 'Recharge is being processed'),
+        },
+      }))
+
       if (status === 'SUCCESS') {
         toast.success('Recharge successful!')
-        resetRechargeForm()
       } else if (status === 'FAILED') {
         toast.error(txn?.providerMessage || res.data?.message || 'Recharge failed', { duration: 6000 })
       } else if (['PENDING', 'PROCESSING', 'INITIATED'].includes(status)) {
@@ -202,14 +270,61 @@ export default function Recharge() {
       } else {
         toast(res.data?.message || 'Recharge initiated', { icon: '📡' })
       }
-      queryClient.invalidateQueries({ queryKey: ['recharge', 'my'] })
-      queryClient.invalidateQueries({ queryKey: ['wallet', 'me'] })
     },
-    onError: (err) => toast.error(extractError(err)),
+    onError: (err) => {
+      const errMsg = extractError(err)
+      toast.error(errMsg)
+      setRechargeModal((prev) => ({
+        ...prev,
+        step: 'RESULT',
+        result: {
+          isSuccess: false,
+          isFailed: true,
+          isPending: false,
+          status: 'FAILED',
+          txn: null,
+          message: errMsg,
+        },
+      }))
+    },
   })
 
   const onSubmit = (values) => {
-    rechargeMutation.mutate({ ...values, amount: Number(values.amount) })
+    const op = operators.find((o) => o._id === values.operatorId)
+    const cir = circles.find((c) => c._id === values.circleId)
+    setRechargeModal({
+      isOpen: true,
+      step: 'CONFIRM',
+      data: {
+        ...values,
+        amount: Number(values.amount),
+        operatorName: op?.name || 'Operator',
+        operatorCode: op?.code || '',
+        circleName: cir?.name || 'Circle',
+        plan: selectedPlan,
+      },
+      result: null,
+    })
+  }
+
+  const handleConfirmRecharge = () => {
+    if (!rechargeModal.data) return
+    setRechargeModal((prev) => ({ ...prev, step: 'PROCESSING' }))
+    rechargeMutation.mutate({
+      mobileNumber: rechargeModal.data.mobileNumber,
+      amount: rechargeModal.data.amount,
+      type: rechargeModal.data.type,
+      operatorId: rechargeModal.data.operatorId,
+      circleId: rechargeModal.data.circleId,
+    })
+  }
+
+  const handleCloseModal = () => {
+    if (rechargeMutation.isPending || rechargeModal.step === 'PROCESSING') return
+    if (rechargeModal.result?.isSuccess) {
+      resetRechargeForm()
+    }
+    setRechargeModal({ isOpen: false, step: 'CONFIRM', data: null, result: null })
   }
 
   const applyPlan = (plan) => {
@@ -464,6 +579,241 @@ export default function Recharge() {
           </Card>
         </div>
       </div>
+
+      {/* ── Recharge Confirmation & Result Modal ──────────────────── */}
+      <Modal
+        open={rechargeModal.isOpen}
+        onClose={handleCloseModal}
+        title={
+          rechargeModal.step === 'CONFIRM'
+            ? 'Confirm Recharge'
+            : rechargeModal.step === 'PROCESSING'
+            ? 'Processing Recharge'
+            : rechargeModal.result?.isSuccess
+            ? 'Recharge Successful'
+            : rechargeModal.result?.isPending
+            ? 'Recharge Processing'
+            : 'Recharge Failed'
+        }
+        size="md"
+      >
+        {rechargeModal.isOpen && (
+          <div className="space-y-5">
+            {/* STEP 1: CONFIRM */}
+            {rechargeModal.step === 'CONFIRM' && rechargeModal.data && (
+              <div className="space-y-4">
+                {/* Big Highlights Hero Card */}
+                <div className="p-5 bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE] border border-[#BFDBFE] rounded-2xl text-center space-y-2">
+                  <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#2563EB]/10 text-[#1D4ED8] uppercase tracking-wide">
+                    {rechargeModal.data.type?.replace('_', ' ')}
+                  </span>
+
+                  {/* Big Amount */}
+                  <div className="font-mono font-extrabold text-4xl text-[#0F172A] tracking-tight">
+                    ₹{rechargeModal.data.amount}
+                  </div>
+
+                  {/* Big Number */}
+                  <div className="flex items-center justify-center gap-2 text-xl font-bold font-mono text-[#1E3A8A]">
+                    <Smartphone size={22} className="text-[#2563EB]" />
+                    <span>+91 {rechargeModal.data.mobileNumber}</span>
+                  </div>
+
+                  <p className="text-xs font-medium text-[#475569]">
+                    {rechargeModal.data.operatorName} • {rechargeModal.data.circleName}
+                  </p>
+                </div>
+
+                {/* Details Breakdown */}
+                <div className="border border-[#E2E8F0] rounded-xl text-xs divide-y divide-[#E2E8F0] bg-white">
+                  <div className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-[#64748B]">Current Wallet Balance</span>
+                    <span className="font-mono font-medium text-[#0F172A]">
+                      {formatCurrency(wallet?.balance)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-[#64748B]">Deduction Amount</span>
+                    <span className="font-mono font-bold text-[#DC2626]">
+                      - {formatCurrency(rechargeModal.data.amount)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-[#F8FAFC]">
+                    <span className="font-medium text-[#334155]">Balance After Recharge</span>
+                    <span className="font-mono font-bold text-[#16A34A]">
+                      {formatCurrency(Math.max(0, (wallet?.balance || 0) - rechargeModal.data.amount))}
+                    </span>
+                  </div>
+                  {rechargeModal.data.plan && (
+                    <div className="px-4 py-2.5 bg-[#F0FDF4] text-[#166534] space-y-0.5">
+                      <p className="font-semibold text-[11px]">Selected Plan Details:</p>
+                      <p className="text-[11px]">
+                        {rechargeModal.data.plan.description || ''}
+                        {rechargeModal.data.plan.validity ? ` • Validity: ${rechargeModal.data.plan.validity}` : ''}
+                        {rechargeModal.data.plan.dataAmount ? ` • Data: ${rechargeModal.data.plan.dataAmount}` : ''}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Confirm Buttons */}
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    variant="secondary"
+                    className="flex-1 py-2.5"
+                    onClick={handleCloseModal}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1 py-2.5 !bg-[#2563EB] hover:!bg-[#1D4ED8] text-white font-semibold text-sm shadow-md"
+                    leftIcon={<Zap size={16} />}
+                    onClick={handleConfirmRecharge}
+                  >
+                    Confirm & Pay ₹{rechargeModal.data.amount}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: PROCESSING */}
+            {rechargeModal.step === 'PROCESSING' && (
+              <div className="py-8 text-center space-y-4">
+                <div className="relative mx-auto w-20 h-20 flex items-center justify-center">
+                  <div className="absolute inset-0 rounded-full border-4 border-[#2563EB]/20 animate-ping" />
+                  <div className="w-16 h-16 rounded-full bg-[#EFF6FF] border-2 border-[#2563EB] flex items-center justify-center text-[#2563EB]">
+                    <Loader size={32} className="animate-spin" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-bold text-[#0F172A]">Processing Recharge…</h3>
+                  <p className="text-sm font-mono text-[#2563EB] font-semibold">
+                    +91 {rechargeModal.data?.mobileNumber} • ₹{rechargeModal.data?.amount}
+                  </p>
+                  <p className="text-xs text-[#94A3B8] pt-1">
+                    Contacting operator servers. Please wait a moment...
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: RESULT */}
+            {rechargeModal.step === 'RESULT' && rechargeModal.result && (
+              <div className="space-y-4">
+                {/* SUCCESS */}
+                {rechargeModal.result.isSuccess && (
+                  <div className="p-5 bg-gradient-to-br from-[#F0FDF4] to-[#DCFCE7] border border-[#86EFAC] rounded-2xl text-center space-y-2">
+                    <div className="w-14 h-14 mx-auto rounded-full bg-[#16A34A] text-white flex items-center justify-center shadow-md">
+                      <CheckCircle2 size={32} />
+                    </div>
+                    <h3 className="text-xl font-extrabold text-[#15803D]">Recharge Successful!</h3>
+                    <div className="font-mono text-3xl font-black text-[#0F172A]">
+                      ₹{rechargeModal.result.txn?.amount || rechargeModal.data?.amount}
+                    </div>
+                    <p className="text-sm font-mono font-bold text-[#166534]">
+                      +91 {rechargeModal.result.txn?.mobileNumber || rechargeModal.data?.mobileNumber}
+                    </p>
+                    <p className="text-xs text-[#15803D]">
+                      {rechargeModal.data?.operatorName}
+                    </p>
+                  </div>
+                )}
+
+                {/* FAILED */}
+                {rechargeModal.result.isFailed && (
+                  <div className="p-5 bg-gradient-to-br from-[#FEF2F2] to-[#FEE2E2] border border-[#FCA5A5] rounded-2xl text-center space-y-2">
+                    <div className="w-14 h-14 mx-auto rounded-full bg-[#DC2626] text-white flex items-center justify-center shadow-md">
+                      <XCircle size={32} />
+                    </div>
+                    <h3 className="text-xl font-extrabold text-[#B91C1C]">Recharge Failed</h3>
+                    <div className="font-mono text-2xl font-bold text-[#0F172A]">
+                      ₹{rechargeModal.result.txn?.amount || rechargeModal.data?.amount}
+                    </div>
+                    <p className="text-sm font-mono font-bold text-[#991B1B]">
+                      +91 {rechargeModal.result.txn?.mobileNumber || rechargeModal.data?.mobileNumber}
+                    </p>
+                    <div className="mt-2 p-2.5 bg-white/80 border border-[#FECACA] rounded-lg text-xs text-[#B91C1C] font-medium">
+                      {rechargeModal.result.message || 'The operator rejected this recharge request.'}
+                    </div>
+                    <p className="text-[11px] text-[#7F1D1D] pt-1">
+                      Wallet balance has been refunded / not deducted.
+                    </p>
+                  </div>
+                )}
+
+                {/* PENDING / PROCESSING */}
+                {rechargeModal.result.isPending && (
+                  <div className="p-5 bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] border border-[#FDE68A] rounded-2xl text-center space-y-2">
+                    <div className="w-14 h-14 mx-auto rounded-full bg-[#D97706] text-white flex items-center justify-center shadow-md">
+                      <Clock size={32} />
+                    </div>
+                    <h3 className="text-xl font-extrabold text-[#B45309]">Recharge Pending</h3>
+                    <div className="font-mono text-2xl font-bold text-[#0F172A]">
+                      ₹{rechargeModal.result.txn?.amount || rechargeModal.data?.amount}
+                    </div>
+                    <p className="text-sm font-mono font-bold text-[#92400E]">
+                      +91 {rechargeModal.result.txn?.mobileNumber || rechargeModal.data?.mobileNumber}
+                    </p>
+                    <p className="text-xs text-[#92400E] pt-1">
+                      The recharge is currently being processed by the operator. Your wallet is safe and will be updated automatically.
+                    </p>
+                  </div>
+                )}
+
+                {/* Breakdown Details Table */}
+                {rechargeModal.result.txn && (
+                  <div className="border border-[#E2E8F0] rounded-xl text-xs divide-y divide-[#E2E8F0] bg-white">
+                    <div className="flex items-center justify-between px-4 py-2.5">
+                      <span className="text-[#64748B]">Transaction ID</span>
+                      <span className="font-mono font-semibold text-[#0F172A]">
+                        {rechargeModal.result.txn.txnId}
+                      </span>
+                    </div>
+                    {(rechargeModal.result.txn.operatorRef || rechargeModal.result.txn.providerTxnId) && (
+                      <div className="flex items-center justify-between px-4 py-2.5">
+                        <span className="text-[#64748B]">Operator Ref ID</span>
+                        <span className="font-mono text-[#0F172A]">
+                          {rechargeModal.result.txn.operatorRef || rechargeModal.result.txn.providerTxnId}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between px-4 py-2.5">
+                      <span className="text-[#64748B]">Final Status</span>
+                      <StatusBadge status={rechargeModal.result.status} />
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-2.5">
+                      <span className="text-[#64748B]">Date & Time</span>
+                      <span className="text-[#0F172A]">
+                        {formatDateTime(rechargeModal.result.txn.createdAt || new Date())}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-2">
+                  {rechargeModal.result.isFailed && (
+                    <Button
+                      variant="secondary"
+                      className="flex-1 py-2.5"
+                      leftIcon={<RefreshCw size={14} />}
+                      onClick={() => setRechargeModal((prev) => ({ ...prev, step: 'CONFIRM' }))}
+                    >
+                      Try Again
+                    </Button>
+                  )}
+                  <Button
+                    className="flex-1 py-2.5 !bg-[#0F172A] hover:!bg-[#1E293B] text-white font-medium"
+                    onClick={handleCloseModal}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
