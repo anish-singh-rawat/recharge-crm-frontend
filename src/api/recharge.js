@@ -10,5 +10,7 @@ export const rechargeApi = {
   retryRecharge: (txnId) => api.post(`/recharge/${txnId}/retry`),
   refundRecharge: (txnId, reason, forceRefundSuccess = false) =>
     api.post(`/recharge/${txnId}/refund`, { reason, forceRefundSuccess }),
+  syncStatusAdmin: (txnId) => api.post(`/recharge/${txnId}/sync-status`),
 }
+
 

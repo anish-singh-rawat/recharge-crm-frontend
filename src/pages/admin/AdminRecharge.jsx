@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, CornerDownLeft, Search, AlertTriangle } from 'lucide-react'
+import { RefreshCw, CornerDownLeft, Search, AlertTriangle, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { rechargeApi } from '@/api/recharge'
 import Card, { CardHeader } from '@/components/ui/Card'
@@ -27,6 +27,9 @@ export default function AdminRecharge() {
   const [forceRefundConfirm, setForceRefundConfirm] = useState(false)
 
   const [retryModal, setRetryModal] = useState(null)
+
+  const [syncConfirmModal, setSyncConfirmModal] = useState(null)
+  const [syncResult, setSyncResult] = useState(null) // { txn, changed, newStatus }
 
   const ready = useIsReady()
 
@@ -73,6 +76,22 @@ export default function AdminRecharge() {
       setForceRefundConfirm(false)
     },
     onError: (err) => toast.error(extractError(err)),
+  })
+
+  const syncStatusMutation = useMutation({
+    mutationFn: (txnId) => rechargeApi.syncStatusAdmin(txnId),
+    onSuccess: (res) => {
+      const { changed, newStatus, transaction, statusResult } = res.data.data
+      queryClient.invalidateQueries({ queryKey: ['recharge', 'all'] })
+      setSyncConfirmModal(null)
+      setSyncResult({ changed, newStatus, txn: transaction, statusResult })
+      if (changed) toast.success(`Status synced → ${newStatus}`)
+      else toast('Status already up-to-date', { icon: 'ℹ️' })
+    },
+    onError: (err) => {
+      setSyncConfirmModal(null)
+      toast.error(extractError(err))
+    },
   })
 
   return (
@@ -152,6 +171,16 @@ export default function AdminRecharge() {
                               title="Retry Recharge"
                             >
                               <RefreshCw size={14} />
+                            </button>
+                          )}
+                          {/* Sync Status — visible for FAILED/PENDING RealRobo txns */}
+                          {['FAILED', 'PENDING', 'PROCESSING'].includes(txn.status) && txn.usedProvider === 'realrobo' && (
+                            <button
+                              onClick={() => setSyncConfirmModal(txn)}
+                              className="p-1.5 rounded hover:bg-[#F0FDF4] text-[#16A34A] transition-colors"
+                              title="Sync Status from RealRobo"
+                            >
+                              <Zap size={14} />
                             </button>
                           )}
                           {txn.status === 'SUCCESS' && (
@@ -300,6 +329,137 @@ export default function AdminRecharge() {
                 {refundModal.status === 'SUCCESS' ? 'Force Refund' : 'Process Refund'}
               </Button>
             </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Sync Confirm Modal ────────────────────────────────────── */}
+      <Modal
+        open={!!syncConfirmModal}
+        onClose={() => setSyncConfirmModal(null)}
+        title="Sync Status with RealRobo"
+        size="md"
+      >
+        {syncConfirmModal && (
+          <div className="space-y-4">
+            <div className="p-3.5 bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl flex items-start gap-3">
+              <Zap size={20} className="text-[#16A34A] shrink-0 mt-0.5" />
+              <div className="text-xs text-[#166534] space-y-1">
+                <p className="font-semibold text-sm text-[#14532D]">Live Provider Verification</p>
+                <p>
+                  This will query RealRobo's servers directly using Request ID <span className="font-mono font-medium">({syncConfirmModal.txnId})</span> to check the actual live status of this recharge.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-0 text-sm border border-[#E2E8F0] rounded-xl divide-y divide-[#E2E8F0]">
+              {[
+                ['Transaction ID', <span key="txn" className="font-mono text-xs">{syncConfirmModal.txnId}</span>],
+                ['Retailer', syncConfirmModal.user?.name ? `${syncConfirmModal.user.name} (${syncConfirmModal.user.phone || ''})` : '—'],
+                ['Mobile Number', syncConfirmModal.mobileNumber],
+                ['Operator', syncConfirmModal.operator?.name || '—'],
+                ['Amount', <span key="amt" className="font-mono font-semibold text-[#0F172A]">{formatCurrency(syncConfirmModal.amount)}</span>],
+                ['Current Status', <StatusBadge key="st" status={syncConfirmModal.status} />],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-[#94A3B8] text-xs">{label}</span>
+                  <span className="text-[#0F172A] text-sm">{value}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-3 bg-[#FFFBEB] border border-[#FDE68A] rounded-xl text-xs text-[#92400E] space-y-2">
+              <p className="font-semibold text-xs flex items-center gap-1.5 text-[#B45309]">
+                <span>ℹ️ What will happen after confirmation:</span>
+              </p>
+              <ul className="list-disc pl-4 space-y-1.5 text-[#78350F]">
+                <li>
+                  System will request RealRobo for the live status of this recharge.
+                </li>
+                {syncConfirmModal.status === 'FAILED' ? (
+                  <li>
+                    <strong>If status is SUCCESS on RealRobo:</strong> Status will change to <span className="text-[#16A34A] font-semibold">SUCCESS</span>. Since a refund of {formatCurrency(syncConfirmModal.amount)} was previously given to the retailer when it failed, the system will <strong>re-debit</strong> the retailer's wallet to keep accounts balanced.
+                  </li>
+                ) : (
+                  <li>
+                    <strong>If status is SUCCESS on RealRobo:</strong> Status will be marked as <span className="text-[#16A34A] font-semibold">SUCCESS</span>.
+                  </li>
+                )}
+                <li>
+                  <strong>If still FAILED / PENDING:</strong> Status will remain unchanged.
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => setSyncConfirmModal(null)}
+                disabled={syncStatusMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 !bg-[#16A34A] hover:!bg-[#15803D] text-white"
+                leftIcon={<Zap size={14} />}
+                loading={syncStatusMutation.isPending}
+                onClick={() => syncStatusMutation.mutate(syncConfirmModal.txnId)}
+              >
+                Confirm & Sync
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Sync Status Result Modal ───────────────────────────────── */}
+      <Modal
+        open={!!syncResult}
+        onClose={() => setSyncResult(null)}
+        title="Sync Status Result"
+        size="sm"
+      >
+        {syncResult && (
+          <div className="space-y-4">
+            <div className={`flex items-start gap-3 p-3 rounded-xl border ${
+              syncResult.changed
+                ? 'bg-[#F0FDF4] border-[#86EFAC]'
+                : 'bg-[#EFF6FF] border-[#BFDBFE]'
+            }`}>
+              <Zap size={18} className={syncResult.changed ? 'text-[#16A34A] shrink-0 mt-0.5' : 'text-[#2563EB] shrink-0 mt-0.5'} />
+              <p className={`text-sm font-medium ${syncResult.changed ? 'text-[#15803D]' : 'text-[#1E40AF]'}`}>
+                {syncResult.changed
+                  ? `Status successfully updated to ${syncResult.newStatus}`
+                  : `Status is already ${syncResult.newStatus} — no change needed`}
+              </p>
+            </div>
+
+            {syncResult.txn && (
+              <div className="space-y-0 text-sm border border-[#E2E8F0] rounded-xl divide-y divide-[#E2E8F0]">
+                {[
+                  ['Txn ID', <span key="id" className="font-mono text-xs">{syncResult.txn.txnId}</span>],
+                  ['Status', <StatusBadge key="s" status={syncResult.newStatus} />],
+                  ['Provider Status', syncResult.statusResult?.providerStatus || syncResult.txn.providerStatus || '—'],
+                  ['Provider Ref', syncResult.txn.operatorRef || syncResult.txn.providerTxnId || syncResult.statusResult?.operatorRef || '—'],
+                  ['Provider Message', syncResult.txn.providerMessage || syncResult.statusResult?.message || '—'],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-[#94A3B8] text-xs">{label}</span>
+                    <span className="text-[#0F172A] text-sm font-medium">{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {syncResult.statusResult?.rawResponse && (
+              <div className="p-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs font-mono text-[#334155] overflow-x-auto max-h-36">
+                <p className="text-[10px] text-[#94A3B8] uppercase font-bold mb-1 font-sans">RealRobo Raw Response</p>
+                <pre className="whitespace-pre-wrap">{JSON.stringify(syncResult.statusResult.rawResponse, null, 2)}</pre>
+              </div>
+            )}
+
+            <Button className="w-full" onClick={() => setSyncResult(null)}>Close</Button>
           </div>
         )}
       </Modal>
